@@ -283,8 +283,21 @@ struct EngineParams
 class DelayEngine
 {
 public:
+    bool isPreparedFor (double sampleRate) const { return prepared && std::abs ((double) fs - sampleRate) < 0.5; }
+
+    // Repetitions remises a zero, reglages et boucle du looper gardes (bypass de l'hote, reprise de lecture).
+    // Leger : appele seulement depuis le thread audio, au debut d'un bloc.
+    void softReset()
+    {
+        resetAll();
+        holdRef = 0.1f; holdEnv = 0.0f; holdGain = 1.0f;
+        twistHeld = false; twistT = 0; twistMul = 1.0f; twistFb = 0; twistRot = 0; twistRamp = 0;
+        warpAmt = 0; modeFade = 0.0f;          // reprise en fondu, sans clic
+    }
+
     void prepare (double sampleRate)
     {
+        prepared = true;
         fs = (float) sampleRate;
         const int maxSamples = (int) (fs * 20.6f) + 64;   // 10 s x2 (lecture reverse) + marge
         for (int c = 0; c < 2; ++c)
@@ -499,6 +512,7 @@ public:
 
 private:
     float fs = 48000.0f;
+    bool prepared = false;
     DelayLine line[2];
     PitchShifter shifter[2];
     std::array<DelayLine, 2> diff[2];

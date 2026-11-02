@@ -159,6 +159,7 @@ T = {
           "<b>The LED of my memory is dimmed:</b> you changed a setting. Hold the LED 1 second to store it, or click it to go back to the stored sound.",
           "<b>My MIDI pedal does nothing:</b> the track must receive MIDI. Right-click › MIDI shows the CC of each control: learn the right one, or choose Reset MIDI to defaults.",
           "<b>The delay vanished after adding an effect (in REAPER or Octopus):</b> an invalid sample (NaN / infinite) can arrive when the chain is rebuilt. Eight Echo now filters it at the input and, if one ever appears inside, resets its repeats on its own: the delay comes back straight away, without reloading the plugin.",
+          "<b>Bypass in REAPER or an Octopus STOMP footswitch:</b> switching Eight Echo off and on from the host is instant; the repeats start again cleanly and a loop recorded in the looper is kept.",
           "<b>A footswitch of another controller also switches Eight Echo:</b> MIDI goes through Octopus to the following effects. If your controller sends one of Eight Echo's default CCs (20 to 27, 80 to 83), Right-click › MIDI and learn another CC for that control, or give the controller other numbers.",
           "<b>The window is too small:</b> Right-click › Window size › 75 % or 100 %. It can never be smaller than the default size."]),
 "fr": dict(
@@ -317,6 +318,7 @@ T = {
           "<b>La LED de ma mémoire est adoucie :</b> vous avez modifié un réglage. Maintenez la LED 1 seconde pour l'enregistrer, ou cliquez dessus pour revenir au son mémorisé.",
           "<b>Ma pédale MIDI ne fait rien :</b> la piste doit recevoir le MIDI. Clic droit › MIDI affiche le CC de chaque commande : apprenez le bon, ou choisissez Reset MIDI to defaults.",
           "<b>Le delay a disparu après l'ajout d'un effet (dans REAPER ou Octopus) :</b> un échantillon invalide (NaN / infini) peut arriver quand la chaîne est reconstruite. Eight Echo le filtre désormais à l'entrée et, s'il en apparaît un à l'intérieur, remet ses répétitions à zéro tout seul : le delay revient aussitôt, sans recharger le plugin.",
+          "<b>Bypass dans REAPER ou footswitch STOMP d'Octopus :</b> couper et rallumer Eight Echo depuis l'hôte est instantané ; les répétitions repartent proprement et une boucle enregistrée dans le looper est gardée.",
           "<b>Un footswitch d'un autre contrôleur actionne aussi Eight Echo :</b> le MIDI traverse Octopus vers les effets suivants. Si votre contrôleur envoie un des CC par défaut d'Eight Echo (20 à 27, 80 à 83), Clic droit › MIDI et apprenez un autre CC pour cette commande, ou donnez d'autres numéros au contrôleur.",
           "<b>La fenêtre est trop petite :</b> Clic droit › Window size › 75 % ou 100 %. Elle ne peut jamais être plus petite que la taille par défaut."]),
 }

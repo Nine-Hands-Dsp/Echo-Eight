@@ -126,6 +126,11 @@ private:
     std::vector<float> monoTmp;           // tampon mono prepare hors du thread audio
     std::vector<float> dryL, dryR;        // copie du son direct (secours si le moteur sort une valeur invalide)
     std::atomic<int> recoveries { 0 };    // nombre de remises en etat (diagnostic)
+    // Bypass de l'hote (REAPER / Octopus STOMP) : setProcessing(false) -> reset() peut venir du thread d'interface.
+    // On ne touche jamais au moteur hors du thread audio : on demande, le thread audio fait le travail.
+    std::atomic<bool> resetPending { false };
+    // prepareToPlay pendant que l'audio tourne encore (hote) : le thread audio laisse passer le son direct
+    std::atomic<bool> engineBusy { false }, inProcess { false };
 
     // Anti-gel v2 : depuis le thread audio, aucun appel a l'hote ; les valeurs sont mises en file
     // et transmises au DAW par un timer du thread de messages (60 Hz).

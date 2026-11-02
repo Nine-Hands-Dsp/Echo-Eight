@@ -2,6 +2,10 @@
 //  1. qu'au lancement la memoire 1 est chargee (potards = memoire 1, LED pleine)
 //  2. que la queue du delay est toujours la apres chaque operation d'hote
 #include <juce_audio_utils/juce_audio_utils.h>
+#include <thread>
+#include <atomic>
+#include <juce_audio_processors_headless/format_types/VST3_SDK/pluginterfaces/vst/ivstaudioprocessor.h>
+#include <juce_audio_processors_headless/format_types/VST3_SDK/pluginterfaces/vst/ivstcomponent.h>
 using namespace juce;
 static int failures = 0;
 static void check (bool ok, const String& w) { std::printf ("%s %s\n", ok ? "  OK  " : "  FAIL", w.toRawUTF8()); if (! ok) ++failures; }
@@ -159,6 +163,75 @@ int main (int argc, char** argv)
             const float t = tailRms (p, 512, false, mp->getCurrentValueAsText() == "REVERSE" ? 4.5 : 0.6);   // REVERSE : repetitions longues
             check (finite && t > 0.002f, "mode " + mp->getCurrentValueAsText() + " : sortie valide, delay present (" + String (t, 4) + ")");
         }
+    }
+
+    // ---------- 3. bypass facon REAPER / Octopus STOMP pendant que le son tourne :
+    //  thread audio qui traite en continu ; thread de messages qui fait setProcessing(false/true) (bypass VST3),
+    //  le parametre Bypass, et la fenetre ouverte. Doit rester rapide, sans plantage, et le delay doit revenir.
+    {
+        Steinberg::Vst::IAudioProcessor* ap = nullptr;
+        Steinberg::Vst::IComponent* comp = p.getVST3Client() != nullptr ? p.getVST3Client()->getIComponentPtr() : nullptr;
+        if (comp != nullptr) comp->queryInterface (Steinberg::Vst::IAudioProcessor::iid, (void**) &ap);
+        check (ap != nullptr, "interface VST3 IAudioProcessor");
+        std::unique_ptr<AudioProcessorEditor> ed (p.createEditorIfNeeded());
+        if (ed) ed->setVisible (true);
+        std::atomic<bool> run { true }, processing { true }; std::atomic<int> blocks { 0 }; std::atomic<bool> bad { false };
+        std::thread audio ([&]
+        {
+            AudioBuffer<float> b (2, 256); MidiBuffer m; Random r (7);
+            while (run)
+            {
+                for (int i = 0; i < 256; ++i) { const float x = (r.nextFloat() * 2 - 1) * 0.3f; b.setSample (0, i, x); b.setSample (1, i, x); }
+                m.clear();
+                if (processing) p.processBlock (b, m);      // l'hote ne traite pas pendant le bypass
+                for (int i = 0; i < 256; ++i) if (! std::isfinite (b.getSample (0, i))) bad = true;
+                ++blocks;
+                std::this_thread::sleep_for (std::chrono::microseconds (2000));
+            }
+        });
+        double worst = 0;
+        for (int k = 0; k < 40; ++k)
+        {
+            MessageManager::getInstance()->runDispatchLoopUntil (40);
+            processing = false;
+            const double t0 = Time::getMillisecondCounterHiRes();
+            if (ap) ap->setProcessing (false);                  // REAPER : bypass (peut venir du thread d'interface)
+            worst = jmax (worst, Time::getMillisecondCounterHiRes() - t0);
+            MessageManager::getInstance()->runDispatchLoopUntil (40);
+            if (ap) ap->setProcessing (true);
+            processing = true;
+            if (auto* bp = p.getBypassParameter()) { bp->setValueNotifyingHost (k % 2 ? 1.0f : 0.0f); }
+        }
+        if (auto* bp = p.getBypassParameter()) bp->setValueNotifyingHost (0.0f);
+        MessageManager::getInstance()->runDispatchLoopUntil (200);
+        run = false; audio.join();
+        std::printf ("  setProcessing(false) le plus long : %.2f ms, %d blocs traites\n", worst, blocks.load());
+        check (worst < 2.0, "bypass VST3 instantane (setProcessing leger : " + String (worst, 2) + " ms)");
+        {   // desactivation / reactivation complete par l'hote (meme frequence) : rapide, sans reallocation
+            processing = false;
+            double w2 = 0;
+            for (int k = 0; k < 5; ++k) { const double t0 = Time::getMillisecondCounterHiRes(); p.reset(); w2 = jmax (w2, Time::getMillisecondCounterHiRes() - t0); }
+            processing = true;
+            std::printf ("  reactivation complete la plus longue : %.2f ms\n", w2);
+            check (w2 < 5.0, "reactivation par l'hote rapide (" + String (w2, 2) + " ms)");
+        }
+        check (! bad, "sortie toujours valide pendant les bypass");
+        if (ed)
+        {
+            // la fenetre doit toujours repondre : un clic sur BYPASS (pied) coupe puis rallume l'effet
+            auto* on = findParam (p, "Effect On");
+            const float before = on ? on->getValue() : -1.0f;
+            auto* fs = findParam (p, "Footswitch (hold)");
+            if (fs) { fs->setValueNotifyingHost (1.0f); silence (p, 0.05, 256); fs->setValueNotifyingHost (0.0f); silence (p, 0.05, 256); }
+            for (int i = 0; i < 10; ++i) MessageManager::getInstance()->runDispatchLoopUntil (20);
+            check (on != nullptr && on->getValue() != before, "la pedale repond apres les bypass (BYPASS bascule l'effet)");
+            if (fs) { fs->setValueNotifyingHost (1.0f); silence (p, 0.05, 256); fs->setValueNotifyingHost (0.0f); silence (p, 0.05, 256); }
+            for (int i = 0; i < 10; ++i) MessageManager::getInstance()->runDispatchLoopUntil (20);
+            ed.reset();
+        }
+        if (ap) ap->release();
+        p.releaseResources(); p.prepareToPlay (SR, 512);
+        still ("apres 40 bypass STOMP pendant la lecture");
     }
 
     p.releaseResources();

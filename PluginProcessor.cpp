@@ -1,4 +1,5 @@
 #include "PluginProcessor.h"
+#include <thread>
 #include "PluginEditor.h"
 #include <cstring>
 
@@ -319,15 +320,24 @@ bool EightEchoProcessor::isBusesLayoutSupported (const BusesLayout& layouts) con
 
 void EightEchoProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
-    sr = sampleRate > 1000.0 ? sampleRate : 48000.0;          // jamais de frequence nulle (divisions)
+    // l'hote reactive la pedale (bypass REAPER / Octopus) : meme frequence -> rien a reallouer,
+    // la boucle du looper est gardee et la reprise est immediate
+    const double rate = sampleRate > 1000.0 ? sampleRate : 48000.0;      // jamais de frequence nulle (divisions)
     const size_t cap = (size_t) juce::jmax (samplesPerBlock, 4096);
-    monoTmp.assign (cap, 0.0f); dryL.assign (cap, 0.0f); dryR.assign (cap, 0.0f);
-    engine.prepare (sr);
+    engineBusy.store (true);
+    while (inProcess.load()) std::this_thread::yield();                     // un bloc encore en cours : on l'attend
+    sr = rate;
+    if (monoTmp.size() < cap) { monoTmp.assign (cap, 0.0f); dryL.assign (cap, 0.0f); dryR.assign (cap, 0.0f); }
+    if (engine.isPreparedFor (rate)) engine.softReset();
+    else                             engine.prepare (rate);
+    resetPending.store (false);
+    engineBusy.store (false);
 }
 
 void EightEchoProcessor::reset()
 {
-    engine.recover();
+    // VST3 setProcessing(false) : doit rester instantane et peut venir de n'importe quel thread
+    resetPending.store (true);
 }
 
 void EightEchoProcessor::registerTap()
@@ -399,6 +409,11 @@ void EightEchoProcessor::handleFootswitch (bool pressed, int mode, int blockLen)
 void EightEchoProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi)
 {
     juce::ScopedNoDenormals noDenormals;
+    // le moteur est en cours de preparation sur un autre thread : son direct pour ce bloc
+    inProcess.store (true);
+    struct Leave { std::atomic<bool>& f; ~Leave() { f.store (false); } } leave { inProcess };
+    if (engineBusy.load()) return;
+    if (resetPending.exchange (false)) engine.softReset();
     const int n = buffer.getNumSamples();
     const int numIn = getTotalNumInputChannels(), numOut = getTotalNumOutputChannels();
     if (n == 0) return;
