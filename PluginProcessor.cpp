@@ -105,6 +105,11 @@ EightEchoProcessor::EightEchoProcessor()
     for (int i = 0; i < numQueued; ++i) { pendingValue[i].store (0.0f); pendingSet[i].store (false); }
     resetMidiDefaults();
     initSlots();
+    // au lancement : la memoire 1 est chargee (potards, mode, X2... = LED 1 pleine), et le programme
+    // affiche par l'hote est celui de la memoire 1
+    loadSlot (0);
+    for (int k = 0; k < kNumPresets; ++k)
+        if (juce::String (kPresets[k].name) == "Bread & Butter") currentProgram = k;
     startTimerHz (60);
 }
 
@@ -314,9 +319,15 @@ bool EightEchoProcessor::isBusesLayoutSupported (const BusesLayout& layouts) con
 
 void EightEchoProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
-    sr = sampleRate;
-    monoTmp.assign ((size_t) juce::jmax (samplesPerBlock, 4096), 0.0f);
-    engine.prepare (sampleRate);
+    sr = sampleRate > 1000.0 ? sampleRate : 48000.0;          // jamais de frequence nulle (divisions)
+    const size_t cap = (size_t) juce::jmax (samplesPerBlock, 4096);
+    monoTmp.assign (cap, 0.0f); dryL.assign (cap, 0.0f); dryR.assign (cap, 0.0f);
+    engine.prepare (sr);
+}
+
+void EightEchoProcessor::reset()
+{
+    engine.recover();
 }
 
 void EightEchoProcessor::registerTap()
@@ -457,6 +468,17 @@ void EightEchoProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::M
 
     float* L = buffer.getWritePointer (0);
     float* R = buffer.getNumChannels() > 1 ? buffer.getWritePointer (1) : buffer.getWritePointer (0);
+    // entree protegee : un echantillon NaN / infini (plugin precedent, insertion d'effet dans REAPER...)
+    // ne doit jamais entrer dans la boucle de repetitions ; crete limitee a +24 dBFS
+    const bool haveDry = dryL.size() >= (size_t) n && dryR.size() >= (size_t) n;
+    for (int i = 0; i < n; ++i)
+    {
+        float l = L[i], r = R[i];
+        if (! std::isfinite (l)) l = 0.0f; if (! std::isfinite (r)) r = 0.0f;
+        l = juce::jlimit (-16.0f, 16.0f, l); r = juce::jlimit (-16.0f, 16.0f, r);
+        L[i] = l; R[i] = r;
+        if (haveDry) { dryL[(size_t) i] = l; dryR[(size_t) i] = r; }
+    }
     if (buffer.getNumChannels() > 1) engine.process (L, R, L, R, n, ep);
     else
     {
@@ -464,6 +486,22 @@ void EightEchoProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::M
         float* tmp = monoTmp.data(); std::copy (L, L + n, tmp);
         engine.process (L, tmp, L, tmp, n, ep);
         for (int i = 0; i < n; ++i) L[i] = 0.5f * (L[i] + tmp[i]);
+    }
+    // sortie : si le moteur a produit une valeur invalide, il est remis en etat aussitot
+    // (le delay revient tout seul) et ce bloc sort le son direct
+    {
+        bool bad = false;
+        for (int i = 0; i < n && ! bad; ++i) bad = ! std::isfinite (L[i]) || ! std::isfinite (R[i]);
+        if (bad)
+        {
+            engine.recover();
+            recoveries.fetch_add (1, std::memory_order_relaxed);
+            for (int i = 0; i < n; ++i)
+            {
+                L[i] = haveDry ? dryL[(size_t) i] : 0.0f;
+                if (R != L) R[i] = haveDry ? dryR[(size_t) i] : 0.0f;
+            }
+        }
     }
     for (int c = numIn; c < numOut && c >= 2; ++c) buffer.clear (c, 0, n);
 

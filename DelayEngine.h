@@ -208,6 +208,8 @@ struct Looper
     float fade = 0.0f;
     void init (float fs, float seconds) { maxLen = (int) (fs * seconds); L.assign ((size_t) maxLen, 0); R.assign ((size_t) maxLen, 0); clearAll(); }
     void clearAll() { len = pos = 0; state = EMPTY; }
+    // echantillons invalides dans la boucle enregistree : remplaces par du silence (la boucle est gardee)
+    void scrub() { for (auto* v : { &L, &R }) for (auto& x : *v) if (! std::isfinite (x)) x = 0.0f; if (! std::isfinite (fade)) fade = 0.0f; }
     // footswitch : rec -> play -> overdub -> play ...
     void press()
     {
@@ -315,6 +317,24 @@ public:
         reverb.clear();
         revPhase = 0;
         glitchActive = false; glitchGain = 0;
+    }
+
+    // Remise en etat complete apres un echantillon invalide (NaN / infini) : sans cela la valeur invalide
+    // tourne pour toujours dans la boucle de repetitions et le delay reste muet (meme en coupant la pedale).
+    void recover()
+    {
+        resetAll();
+        for (int c = 0; c < 2; ++c) { std::fill (glitchBuf[c].begin(), glitchBuf[c].end(), 0.0f); noiseLp[c].reset(); }
+        inGate = outGate = dryGainSm = wetMixSm = 1.0f; modeFade = 1.0f; cleared = false;
+        holdRef = 0.1f; holdEnv = 0.0f; holdGain = 1.0f;
+        twistHeld = false; twistT = 0; twistMul = 1.0f; twistFb = 0; twistRot = 0; twistRamp = 0; rotPhase = 0;
+        warpAmt = 0; gPos = 0; gRate = 1;
+        if (! std::isfinite (curDelay) || ! std::isfinite (tapA) || ! std::isfinite (tapB) || ! std::isfinite (targetDelay))
+        { curDelay = targetDelay = tapA = tapB = 0.3f * fs; xf = 1.0f; }
+        if (! std::isfinite (lfoPhase)) lfoPhase = 0;
+        if (! std::isfinite (flutPhase)) flutPhase = 0;
+        if (! std::isfinite (analogPhase)) analogPhase = 0;
+        looper.scrub();
     }
 
     Looper& getLooper() { return looper; }

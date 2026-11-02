@@ -19,6 +19,7 @@ public:
 
     void prepareToPlay (double sampleRate, int samplesPerBlock) override;
     void releaseResources() override {}
+    void reset() override;                       // hote : remise a zero des repetitions
     bool isBusesLayoutSupported (const BusesLayout& layouts) const override;
     void processBlock (juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
 
@@ -123,6 +124,8 @@ private:
                        *rSync = nullptr, *rDivision = nullptr, *rDryKill = nullptr, *rMix = nullptr,
                        *rStereo = nullptr, *rOn = nullptr, *rCarryover = nullptr;
     std::vector<float> monoTmp;           // tampon mono prepare hors du thread audio
+    std::vector<float> dryL, dryR;        // copie du son direct (secours si le moteur sort une valeur invalide)
+    std::atomic<int> recoveries { 0 };    // nombre de remises en etat (diagnostic)
 
     // Anti-gel v2 : depuis le thread audio, aucun appel a l'hote ; les valeurs sont mises en file
     // et transmises au DAW par un timer du thread de messages (60 Hz).

@@ -140,5 +140,10 @@ Looper : Looper
 ## Version 1.8.0
 - v1.8.0 : clic droit > Plugin size > Default size (new windows) : taille par défaut des nouvelles fenêtres au choix, comme dans Octopus
 
+## Version 1.8.1
+- v1.8.1 : au lancement, la mémoire 1 est chargée (potards, mode, X2 = mémoire 1, LED 1 pleine ; programme affiché par l'hôte : Bread & Butter).
+- v1.8.1 : le delay ne peut plus disparaître pour de bon. Un seul échantillon NaN / infini (reconstruction de la chaîne par REAPER ou Octopus, plugin précédent…) tournait indéfiniment dans la boucle de répétitions : delay muet même en coupant / rallumant la pédale. Entrée filtrée (NaN / infini → 0, crête limitée à +24 dBFS) ; si une valeur invalide apparaît dans le moteur, remise en état complète automatique (répétitions, reverb, pitch, glitch, limiteur, boucle du looper nettoyée) et le bloc sort le son direct. `reset()` de l'hôte pris en charge.
+- `tools/host_check` : charge le VST3 compilé comme un hôte et vérifie la mémoire 1 au lancement et la présence du delay après désactivation, bypass, état relu, presets lus par Octopus, tailles de bloc, changement de fréquence, NaN, entrée énorme, Program Change, pédale coupée / rallumée, et dans chaque mode.
+
 ## Notice
-- `docs/EightEcho_Manual_EN-FR_v1.7.2.pdf` (anglais puis français). Générateur : `python3 tools/manual.py <sortie.pdf>` (textes dans `tools/manual_text.py`, illustrations dans `tools/manual/` ; LED des mémoires et SYNC recomposées depuis `leds_on.png` / `sync_on.png`).
+- `docs/EightEcho_Manual_EN-FR_v1.8.1.pdf` (anglais puis français). Générateur : `python3 tools/manual.py <sortie.pdf>` (textes dans `tools/manual_text.py`, illustrations dans `tools/manual/` ; LED des mémoires et SYNC recomposées depuis `leds_on.png` / `sync_on.png`).
