@@ -29,7 +29,7 @@ Le VST3 se récupère dans l'onglet **Actions → artefacts**, à copier dans
 
 **Clic droit** (réglages cachés de la DD-8) : presets d'usine (chargés dans la mémoire en cours), mode stéréo
 (Independent / Wide / Panning), division du tap, sauvegarde en mémoire 1-7, carryover, SYNC, affectation de la pédale d'expression
-(paramètre EXP), taille de fenêtre (Default size / 60% / 75% / 100%, comme Textural et Freeze Shimmer). La fenêtre s'ouvre à sa taille par défaut (390 x 494) et ne peut pas être réduite en dessous.
+(paramètre EXP), Plugin size (60 % / 75 % / 100 %, comme Textural et Freeze Shimmer ; « (default) » marque la taille par défaut choisie). Plugin size > Default size (new windows) : taille d'ouverture des nouvelles fenêtres (toutes les instances, comme dans Octopus), appliquée aussi tout de suite à la fenêtre ouverte ; une taille changée sur une instance est sauvegardée avec le projet et reprise à sa réouverture. La fenêtre ne peut jamais être réduite sous 60 % (390 x 494).
 
 Tout est automatisable / assignable en MIDI dans Reaper (footswitch, tap, twist compris).
 
@@ -136,6 +136,9 @@ Looper : Looper
 - CC par défaut : E.LEVEL 20, MIX 21, FEEDBACK 22, TIME 23, MODE 24, X2 25, SYNC 26, EXP 27, BYPASS 80, TAP 81, PREV MEMORY 82, NEXT MEMORY 83.
 
 - v1.7.2 : menu de taille de fenêtre : « 60 % (default) », 75 %, 100 % (plus de taille en pixels)
+
+## Version 1.8.0
+- v1.8.0 : clic droit > Plugin size > Default size (new windows) : taille par défaut des nouvelles fenêtres au choix, comme dans Octopus
 
 ## Notice
 - `docs/EightEcho_Manual_EN-FR_v1.7.2.pdf` (anglais puis français). Générateur : `python3 tools/manual.py <sortie.pdf>` (textes dans `tools/manual_text.py`, illustrations dans `tools/manual/` ; LED des mémoires et SYNC recomposées depuis `leds_on.png` / `sync_on.png`).

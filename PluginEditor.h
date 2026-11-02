@@ -148,6 +148,9 @@ private:
     void drawBackdrop (juce::Graphics&) const;     // fond, motifs et ombre (dessines dans le cache)
     void showMenu (int learnTarget = -1);          // learnTarget >= 0 : clic droit sur une commande
     void setScale (float s);
+    static constexpr int numSizes = 3;             // 60 % (defaut d'origine) / 75 % / 100 %
+    static float sizeScale (int idx);
+    float openScale = -1.0f;                       // taille par defaut choisie a l'ouverture (non retenue avec le projet tant qu'inchangee)
     juce::Rectangle<float> pedalArea() const;      // emplacement de la pedale (coordonnees taille par defaut)
     float currentScale() const { return juce::jmax (1.0f, (float) getWidth() / (float) baseW); }
 

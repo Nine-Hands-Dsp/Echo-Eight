@@ -1,5 +1,6 @@
 #include "PluginEditor.h"
 #include "BinaryData.h"
+#include "WigaWindowSize.h"
 
 using namespace juce;
 
@@ -556,14 +557,26 @@ EightEchoEditor::EightEchoEditor (EightEchoProcessor& p) : AudioProcessorEditor 
     constrainer.setFixedAspectRatio ((double) baseW / (double) baseH);
     constrainer.setMinimumOnscreenAmounts (0x10000, 0x10000, 0x10000, 0x10000);
     setConstrainer (&constrainer);
-    const float sc = jlimit (1.0f, maxScale, proc.uiScale.load());
+    // taille a l'ouverture : celle sauvegardee avec le projet pour cette instance si elle existe,
+    // sinon celle choisie dans le menu « Default size (new windows) » (commune a toutes les nouvelles fenetres)
+    const float saved = proc.uiScale.load();
+    const float sc = jlimit (1.0f, maxScale, saved > 0.0f ? saved : sizeScale (WigaWindowSize::defaultIndex (JucePlugin_Name, numSizes)));
+    if (saved <= 0.0f) openScale = sc;     // pas de taille propre a l'instance tant qu'on ne la change pas
     setOpaque (true);                      // anti-gel : l'hote ne redessine jamais ce qui est derriere la fenetre
     setSize (roundToInt (baseW * sc), roundToInt (baseH * sc));
     rebuildCaches();
 }
 
+float EightEchoEditor::sizeScale (int idx)
+{
+    // 60 % = taille par defaut d'origine (390 x 494) ; 75 % / 100 % de 2000 px de haut
+    const float sc[numSizes] = { 1.0f, 0.75f * maxScale, maxScale };
+    return sc[jlimit (0, numSizes - 1, idx)];
+}
+
 void EightEchoEditor::setScale (float s)
 {
+    openScale = -1.0f;                     // taille choisie : retenue avec le projet
     s = jlimit (1.0f, maxScale, s); proc.uiScale = s;
     setSize (roundToInt (baseW * s), roundToInt (baseH * s));
 }
@@ -659,7 +672,13 @@ void EightEchoEditor::resized()
     // anti-gel : jamais de setSize ici (mise a l'echelle Windows 125 / 150 % : tolerance de quelques px) ;
     // la contrainte stricte (StrictMinConstrainer) suffit a garder la taille minimale
     const float s = jmin ((float) getWidth() / (float) baseW, (float) getHeight() / (float) baseH);
-    proc.uiScale = s;
+    if (openScale > 0.0f && std::abs (s - openScale) < 0.02f)
+        proc.uiScale = -1.0f;              // toujours a la taille par defaut choisie : rien de propre a l'instance
+    else
+    {
+        openScale = -1.0f;
+        proc.uiScale = s;                  // taille retenue avec le projet
+    }
     const auto a = pedalArea();
     const float ps = a.getHeight() / PedalView::imgH;
     pedal.setBounds (0, 0, (int) PedalView::imgW, (int) PedalView::imgH);
@@ -749,10 +768,19 @@ void EightEchoEditor::showMenu (int learnTarget)
     exp.addItem (403, "Expression > TIME", true, val ("expTime") > 0.5f);
     const float cur = currentScale();
     // memes paliers que Textural / Freeze Shimmer (100 % = 2000 px de haut)
-    const float pct[] = { 0.6f, 0.75f, 1.0f };
-    size.addItem (501, "60 % (default)", true, std::abs (cur - 1.0f) < 0.02f);
-    for (int i = 1; i < 3; ++i)
-        size.addItem (502 + i, String (roundToInt (pct[i] * 100.0f)) + " %", true, std::abs (cur - pct[i] * maxScale) < 0.02f);
+    // Plugin size : taille de cette fenetre + taille par defaut des nouvelles fenetres (comme Octopus)
+    {
+        const char* names[numSizes] = { "60 %", "75 %", "100 %" };
+        const int def = WigaWindowSize::defaultIndex (JucePlugin_Name, numSizes);
+        PopupMenu defSizes;
+        for (int i = 0; i < numSizes; ++i)
+        {
+            size.addItem (501 + i, String (names[i]) + (i == def ? "  (default)" : ""), true, std::abs (cur - sizeScale (i)) < 0.02f);
+            defSizes.addItem (520 + i, names[i], true, i == def);
+        }
+        size.addSeparator();
+        size.addSubMenu ("Default size (new windows)", defSizes);
+    }
     PopupMenu save;
     for (int i = 0; i < EightEchoProcessor::kNumSlots; ++i) save.addItem (700 + i, "Memory " + String (i + 1));
 
@@ -782,7 +810,7 @@ void EightEchoEditor::showMenu (int learnTarget)
     m.addSubMenu ("Expression pedal (EXP parameter)", exp);
     m.addSeparator();
     m.addSubMenu ("MIDI", midi);
-    m.addSubMenu ("Window size", size);
+    m.addSubMenu ("Plugin size", size);
 
     m.showMenuAsync (PopupMenu::Options(), [this] (int r)
     {
@@ -797,7 +825,12 @@ void EightEchoEditor::showMenu (int learnTarget)
         else if (r == 401) toggle ("expLevel");
         else if (r == 402) toggle ("expFeedback");
         else if (r == 403) toggle ("expTime");
-        else if (r >= 501 && r <= 504) { const float sc[] = { 1.0f, 0.6f * maxScale, 0.75f * maxScale, maxScale }; setScale (sc[r - 501]); }
+        else if (r >= 501 && r < 501 + numSizes) setScale (sizeScale (r - 501));
+        else if (r >= 520 && r < 520 + numSizes)
+        {
+            WigaWindowSize::setDefaultIndex (JucePlugin_Name, r - 520);   // toutes les nouvelles fenetres de ce plugin
+            setScale (sizeScale (r - 520));                               // et cette fenetre tout de suite
+        }
         else if (r >= 700 && r < 700 + EightEchoProcessor::kNumSlots) pedal.saveToSlot (r - 700);
         else if (r == 601) toggle ("carryover");
         else if (r == 602) toggle ("sync");
