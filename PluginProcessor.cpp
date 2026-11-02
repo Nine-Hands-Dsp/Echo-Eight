@@ -162,23 +162,24 @@ void EightEchoProcessor::timerCallback()
 
 // ---------------------------------------------------------------------------
 //  MIDI Learn : table des commandes apprenables (nom = serigraphie de la pedale)
-//  Potards a partir de CC 20, selecteur / inverseurs ensuite, footswitchs a partir de CC 80.
+//  Aucune assignation par defaut (v1.8.3) : une commande ne reagit au MIDI qu'apres un MIDI Learn,
+//  pour ne jamais entrer en conflit avec un autre controleur (Octopus, footswitchs...) sur la meme piste.
 // ---------------------------------------------------------------------------
 const EightEchoProcessor::Learnable& EightEchoProcessor::learnable (int i)
 {
     static const Learnable t[kNumLearn] = {
-        { "elevel",     "E.LEVEL",     20, kContinuous },
-        { "mix",        "MIX",         21, kContinuous },
-        { "feedback",   "FEEDBACK",    22, kContinuous },
-        { "time",       "TIME",        23, kContinuous },
-        { "mode",       "MODE",        24, kSelector },
-        { "long",       "X2",          25, kToggle },
-        { "sync",       "SYNC",        26, kToggle },
-        { "exp",        "EXP",         27, kContinuous },     // pedale d'expression (menu Expression pedal)
-        { "footswitch", "BYPASS",      80, kFootswitch },     // tenu tant que CC >= 64 (comme le footswitch)
-        { "tap",        "TAP",         81, kFootswitch },     // tenu : TWIST (en LOOP : 2 s = effacer)
-        { "prev",       "PREV MEMORY", 82, kAction },         // bouton au-dessus de TAP
-        { "next",       "NEXT MEMORY", 83, kAction },         // bouton au-dessus de BYPASS
+        { "elevel",     "E.LEVEL",     -1, kContinuous },
+        { "mix",        "MIX",         -1, kContinuous },
+        { "feedback",   "FEEDBACK",    -1, kContinuous },
+        { "time",       "TIME",        -1, kContinuous },
+        { "mode",       "MODE",        -1, kSelector },
+        { "long",       "X2",          -1, kToggle },
+        { "sync",       "SYNC",        -1, kToggle },
+        { "exp",        "EXP",         -1, kContinuous },     // pedale d'expression (menu Expression pedal)
+        { "footswitch", "BYPASS",      -1, kFootswitch },     // tenu tant que CC >= 64 (comme le footswitch)
+        { "tap",        "TAP",         -1, kFootswitch },     // tenu : TWIST (en LOOP : 2 s = effacer)
+        { "prev",       "PREV MEMORY", -1, kAction },         // bouton au-dessus de TAP
+        { "next",       "NEXT MEMORY", -1, kAction },         // bouton au-dessus de BYPASS
     };
     return t[juce::jlimit (0, kNumLearn - 1, i)];
 }
@@ -603,6 +604,7 @@ void EightEchoProcessor::getStateInformation (juce::MemoryBlock& destData)
     state.setProperty ("slot", currentSlot, nullptr);
     for (int i = 0; i < kNumLearn; ++i)
         state.setProperty (juce::String ("midiCC_") + learnable (i).id, ccNum[i].load(), nullptr);
+    state.setProperty ("midiMap", 2, nullptr);          // 2 = assignations faites uniquement par MIDI Learn
     state.removeChild (state.getChildWithName ("SLOTS"), nullptr);
     juce::ValueTree sl ("SLOTS");
     for (auto& t : slots) sl.appendChild (t.createCopy(), nullptr);
@@ -621,9 +623,11 @@ void EightEchoProcessor::setStateInformation (const void* data, int sizeInBytes)
             tapOverride = (bool) vt.getProperty ("tapOn", false);
             currentProgram = (int) vt.getProperty ("program", 0);
             currentSlot = juce::jlimit (0, kNumSlots - 1, (int) vt.getProperty ("slot", 0));
-            // assignations MIDI (ancien projet sans ces proprietes : numeros par defaut)
+            // assignations MIDI : seulement celles apprises (un projet plus ancien repart sans aucune assignation)
             for (int i = 0; i < kNumLearn; ++i)
-                ccNum[i].store ((int) vt.getProperty (juce::String ("midiCC_") + learnable (i).id, learnable (i).defaultCC));
+                ccNum[i].store ((int) vt.getProperty ("midiMap", 1) >= 2
+                                    ? (int) vt.getProperty (juce::String ("midiCC_") + learnable (i).id, -1)
+                                    : -1);     // projet d'avant 1.8.3 : les anciens CC par defaut sont retires
             auto sl = vt.getChildWithName ("SLOTS");
             if (sl.isValid())
             {

@@ -78,6 +78,40 @@ int main (int argc, char** argv)
     check (p.getProgramName (p.getCurrentProgram()) == "Bread & Butter", "programme affiche par l'hote = Bread & Butter");
 
     p.prepareToPlay (SR, 512);
+
+    // ---------- MIDI : aucune assignation par defaut (les CC d'un autre controleur / d'Octopus ne touchent pas la pedale)
+    auto sendCcs = [&] ()
+    {
+        AudioBuffer<float> b (2, 512); MidiBuffer m;
+        for (int round = 0; round < 3; ++round)
+        {
+            b.clear(); m.clear();
+            for (int cc = 0; cc < 120; ++cc) m.addEvent (MidiMessage::controllerEvent (1, cc, round == 1 ? 0 : 127), cc % 500);
+            p.processBlock (b, m);
+            for (int k = 0; k < 10; ++k) { b.clear(); m.clear(); p.processBlock (b, m); MessageManager::getInstance()->runDispatchLoopUntil (5); }
+        }
+    };
+    {
+        const float on0 = val ("Effect On"), lv0 = val ("E.Level"), md0 = val ("Mode"), x20 = val ("Long Delay (x2)");
+        sendCcs();
+        check (val ("Effect On") == on0 && val ("E.Level") == lv0 && val ("Mode") == md0 && val ("Long Delay (x2)") == x20,
+               "aucun CC (0-119) n'agit sans MIDI Learn");
+        // projet d'une version plus ancienne (anciens CC par defaut enregistres) : assignations retirees au chargement
+        MemoryBlock st; p.getStateInformation (st);
+        auto xml = AudioProcessor::getXmlFromBinary (st.getData(), (int) st.getSize());
+        if (xml != nullptr)
+        {
+            xml->removeAttribute ("midiMap");
+            xml->setAttribute ("midiCC_footswitch", 80); xml->setAttribute ("midiCC_elevel", 20); xml->setAttribute ("midiCC_mode", 23);
+            MemoryBlock old; AudioProcessor::copyXmlToBinary (*xml, old);
+            p.setStateInformation (old.getData(), (int) old.getSize());
+            const float on1 = val ("Effect On"), lv1 = val ("E.Level");
+            sendCcs();
+            check (val ("Effect On") == on1 && val ("E.Level") == lv1, "ancien projet (CC 80 / 20 / 23 enregistres) : assignations retirees");
+            p.setStateInformation (st.getData(), (int) st.getSize());
+        }
+    }
+
     const float ref = tailRms (p, 512);
     std::printf ("  queue de reference : %.4f\n", ref);
     check (ref > 0.01f, "le delay repete (reference)");

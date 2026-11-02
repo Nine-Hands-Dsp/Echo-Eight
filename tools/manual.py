@@ -219,8 +219,8 @@ def section(lang):
     f.append(P(t["s13"], "h1")); f += bullets(t["menu"]); f.append(P(t["win_h"], "h2")); f.append(P(t["win"]))
     f.append(CondPageBreak(150 * mm))
     f.append(P(t["s14"], "h1")); f.append(P(t["midi_intro"]))
-    rows = [t["midi_hdr"]] + [[n, "CC %d" % c, t["types"][k]] for n, c, k in MIDI_ROWS]
-    f.append(table(rows, [32 * mm, 24 * mm, W - 56 * mm]))
+    rows = [t["midi_hdr"]] + [[n, t["learn_where_exp"] if k == "exp" else t["learn_where"], t["types"][k]] for n, c, k in MIDI_ROWS]
+    f.append(table(rows, [30 * mm, 38 * mm, W - 68 * mm]))
     f.append(P(t["learn_h"], "h2")); f.append(numbered(list(enumerate(t["learn"], 1))))
     f += bullets(t["learn_more"])
     f.append(P(t["auto_h"], "h2")); f.append(P(t["auto"]))

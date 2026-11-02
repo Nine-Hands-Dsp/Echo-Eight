@@ -784,20 +784,28 @@ void EightEchoEditor::showMenu (int learnTarget)
     PopupMenu save;
     for (int i = 0; i < EightEchoProcessor::kNumSlots; ++i) save.addItem (700 + i, "Memory " + String (i + 1));
 
-    // MIDI Learn : toutes les commandes de la facade
+    // MIDI Learn : uniquement par clic droit sur la commande a assigner (aucun CC par defaut)
     auto ccText = [this] (int i) { const int n = proc.ccNum[i].load(); return n >= 0 ? "CC " + String (n) : String (CharPointer_UTF8 ("\xe2\x80\x94")); };
     auto ctlName = [] (int i) { return String (EightEchoProcessor::learnable (i).name); };
-    PopupMenu midi;
-    for (int i = 0; i < EightEchoProcessor::kNumLearn; ++i)
-        midi.addItem (800 + i, "Learn: " + ctlName (i) + " (" + ccText (i) + ")", true, proc.learnTarget.load() == i);
-    if (proc.learnTarget.load() >= 0) midi.addItem (898, "Cancel MIDI learn");
-    midi.addSeparator();
-    midi.addItem (899, "Reset MIDI to defaults");
+    bool anyCc = false;
+    for (int i = 0; i < EightEchoProcessor::kNumLearn; ++i) anyCc = anyCc || proc.ccNum[i].load() >= 0;
+    // EXP n'a pas de commande sur la facade : son MIDI Learn est dans le sous-menu Expression pedal
+    if (const int ex = EightEchoProcessor::learnIndexOf ("exp"); ex >= 0)
+    {
+        exp.addSeparator();
+        exp.addItem (800 + ex, "MIDI Learn: EXP (" + ccText (ex) + ")", true, proc.learnTarget.load() == ex);
+        if (proc.ccNum[ex].load() >= 0) exp.addItem (850 + ex, "Clear MIDI: EXP");
+    }
 
+    if (proc.learnTarget.load() >= 0)
+    {
+        m.addItem (898, "Cancel MIDI learn (" + ctlName (proc.learnTarget.load()) + ")");
+        m.addSeparator();
+    }
     if (learnTarget >= 0)      // clic droit sur une commande : son MIDI Learn en tete du menu
     {
         m.addItem (800 + learnTarget, "MIDI Learn: " + ctlName (learnTarget) + " (" + ccText (learnTarget) + ")");
-        m.addItem (850 + learnTarget, "Clear MIDI: " + ctlName (learnTarget));
+        if (proc.ccNum[learnTarget].load() >= 0) m.addItem (850 + learnTarget, "Clear MIDI: " + ctlName (learnTarget));
         m.addSeparator();
     }
     m.addSubMenu ("Factory presets (load into current slot P" + String (proc.getCurrentSlot() + 1) + ")", presets);
@@ -809,7 +817,7 @@ void EightEchoEditor::showMenu (int learnTarget)
     m.addItem (602, "SYNC : delay locked to host tempo", true, val ("sync") > 0.5f);
     m.addSubMenu ("Expression pedal (EXP parameter)", exp);
     m.addSeparator();
-    m.addSubMenu ("MIDI", midi);
+    if (anyCc) m.addItem (897, "Clear all MIDI assignments");
     m.addSubMenu ("Plugin size", size);
 
     m.showMenuAsync (PopupMenu::Options(), [this] (int r)
@@ -841,6 +849,6 @@ void EightEchoEditor::showMenu (int learnTarget)
             if (proc.learnTarget.load() == r - 850) proc.learnTarget.store (-1);
         }
         else if (r == 898) proc.learnTarget.store (-1);
-        else if (r == 899) proc.resetMidiDefaults();
+        else if (r == 897) for (int i = 0; i < EightEchoProcessor::kNumLearn; ++i) proc.ccNum[i].store (-1);
     });
 }
