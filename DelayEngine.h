@@ -1,5 +1,5 @@
 // =============================================================================
-//  Eight Echo (Studio Wiga) - moteur DSP
+//  Eight Echo (NINE HANDS | DSP) - moteur DSP
 //  Emulation comportementale d'un delay compact 11 modes (type DD-8).
 //  Tout le traitement est dans ce fichier : lignes de retard, couleurs par mode,
 //  reverse, shimmer, reverb (+RV), glitch (GLT), warp, twist, looper.

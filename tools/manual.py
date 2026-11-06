@@ -1,4 +1,4 @@
-# EIGHT ECHO (Studio Wiga) - notice PDF bilingue (anglais complet puis francais complet).
+# EIGHT ECHO (NINE HANDS | DSP) - notice PDF bilingue (anglais complet puis francais complet).
 # Usage : python3 tools/manual.py <fichier PDF de sortie>
 # Illustrations : rendu reel de la pedale (tools/manual/render_base.png, meme repere 578 x 896 que background.png)
 # dont les LED des memoires et le capuchon SYNC sont recomposes a chaque generation avec leds_on.png et sync_on.png
@@ -242,7 +242,7 @@ def deco(lang):
         c.setFillColor(ICE); c.rect(0, A4[1] - 11.8 * mm, A4[0], 0.8 * mm, stroke=0, fill=1)
         c.drawImage(P_("logo.png"), 18 * mm, A4[1] - 8.2 * mm, width=32 * mm, height=32 * mm * 57 / 510, mask="auto")
         c.setFont("R", 7.5); c.setFillColor(colors.HexColor("#C9D3DD")); c.drawRightString(A4[0] - 18 * mm, A4[1] - 7 * mm, "EIGHT ECHO · " + t["hdr"])
-        c.setFillColor(GREY); c.drawString(18 * mm, 10 * mm, "Eight Echo (Studio Wiga) · v" + VERSION)
+        c.setFillColor(GREY); c.drawString(18 * mm, 10 * mm, "Eight Echo (NINE HANDS | DSP) · v" + VERSION)
         c.drawRightString(A4[0] - 18 * mm, 10 * mm, str(doc.page)); c.restoreState()
     return _d
 def cover_bg(c, doc):
@@ -250,7 +250,7 @@ def cover_bg(c, doc):
     c.setFillColor(ICE); c.rect(0, A4[1] - 3 * mm, A4[0], 3 * mm, stroke=0, fill=1); c.restoreState()
 
 doc = BaseDocTemplate(OUT, pagesize=A4, leftMargin=18 * mm, rightMargin=18 * mm, topMargin=18 * mm, bottomMargin=17 * mm,
-                      title="EIGHT ECHO - Manual / Notice v" + VERSION, author="Studio Wiga")
+                      title="EIGHT ECHO - Manual / Notice v" + VERSION, author="NINE HANDS | DSP")
 fr_ = lambda i: Frame(doc.leftMargin, doc.bottomMargin, doc.width, doc.height, id=i)
 doc.addPageTemplates([PageTemplate(id="cover", frames=[fr_("c")], onPage=cover_bg),
                       PageTemplate(id="p", frames=[fr_("p")], onPage=deco("en")),

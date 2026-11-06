@@ -120,7 +120,7 @@ EightEchoProcessor::~EightEchoProcessor()
 }
 
 // ---------------------------------------------------------------------------
-//  Anti-gel v2 (Studio Wiga) : jamais d'appel a l'hote (setValueNotifyingHost) depuis le thread audio.
+//  Anti-gel v2 (NINE HANDS | DSP) : jamais d'appel a l'hote (setValueNotifyingHost) depuis le thread audio.
 //  Le footswitch met la valeur en file ; un timer du thread de messages la transmet au DAW.
 // ---------------------------------------------------------------------------
 const char* EightEchoProcessor::queuedId (int i)

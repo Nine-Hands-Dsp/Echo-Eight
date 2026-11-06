@@ -5,7 +5,7 @@
 #include "DelayEngine.h"
 
 // =============================================================================
-//  Eight Echo (Studio Wiga) - processeur
+//  Eight Echo (NINE HANDS | DSP) - processeur
 //  Toute la logique du footswitch (clic, double appui, appui long) est ici,
 //  pilotee par le parametre "footswitch" : le footswitch se comporte donc
 //  exactement pareil a la souris ou via un controleur MIDI assigne dans le DAW.

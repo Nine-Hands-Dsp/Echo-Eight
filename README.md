@@ -1,4 +1,4 @@
-# Eight Echo (Studio Wiga)
+# Eight Echo (NINE HANDS | DSP)
 
 Plugin VST3 (Windows / macOS, + AU sur Mac) reproduisant le fonctionnement d'un delay compact
 11 modes de type DD-8 : mêmes plages, mêmes commandes, mêmes interactions.
@@ -81,20 +81,20 @@ Looper : Looper
 - LED 1 à 7 : tubes de lumière d'origine avec leur diffusion sur la plaque ; version éteinte en acrylique dépoli de même forme.
 - LED rondes : lentilles d'origine allumées en bleu glace / rouge / vert / orange, avec la lumière qui déborde sur la bague et la plaque.
 - Fond : motifs d'anneaux de la pédale en transparence autour d'elle.
-- « Studio Wiga » en gris-noir, légèrement gravé, entre les deux footswitchs.
+- « NINE HANDS | DSP » en gris-noir, légèrement gravé, entre les deux footswitchs.
 
 ## Version 1.3.1
 - LED CHECK (rouge / vert / orange) refaite comme la LED bleue : même profil de lumière, cœur pastel lumineux et même halo.
 
 ## Version 1.3.2
-- Logo Studio Wiga (cercles orange/blanc + texte) a la place du texte, entre TAP et BYPASS.
+- Logo NINE HANDS | DSP (cercles orange/blanc + texte) a la place du texte, entre TAP et BYPASS.
 
 
 ## Version 1.3.4
 - Lumiere autour des LED bleue et CHECK : halo rond qui s eteint en douceur (plus de bord carre).
 
 ## Version 1.4.0
-- Logo Studio Wiga integre a la plaque (fixe, ne clignote plus quand on appuie sur un footswitch), detoure en gris-noir pour mieux ressortir.
+- Logo NINE HANDS | DSP integre a la plaque (fixe, ne clignote plus quand on appuie sur un footswitch), detoure en gris-noir pour mieux ressortir.
 - Potard MODE : cranté exactement sur chacun des 11 modes inscrits (le repere pointait a cote auparavant).
 - X2 : c'est la serigraphie X2 elle-meme qui s'illumine (meme forme, meme taille).
 - Looper : une boucle enregistree continue de tourner quand on choisit un autre mode ; on joue par-dessus avec cet effet, la boucle reste seche (elle ne passe jamais dans le delay). Son volume est celui regle avec E.LEVEL en mode LOOP. Pour l'arreter : revenir sur LOOP (double appui / maintien 2 s pour effacer). La ligne d'etat affiche « +LOOP » quand une boucle tourne sous l'effet.

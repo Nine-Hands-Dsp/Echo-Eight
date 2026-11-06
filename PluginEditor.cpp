@@ -534,8 +534,8 @@ void PedalView::paint (Graphics& g)
     if (pressed == TAPFS) pressFs (cTap);
     if (pressed == BYPASSFS) pressFs (cBypass);
 
-    // Studio Wiga entre les deux footswitchs, en bas
-    // logo Studio Wiga : integre a la plaque dans background.png (toujours fixe)
+    // NINE HANDS | DSP entre les deux footswitchs, en bas
+    // logo NINE HANDS | DSP : integre a la plaque dans background.png (toujours fixe)
 
 }
 
@@ -586,7 +586,7 @@ void EightEchoEditor::setScale (float s)
 // Avec certains pilotes (Intel notamment) la fenetre du plugin cesse de se rafraichir alors que
 // le DAW continue de tourner. Le moteur logiciel est stable partout et largement assez rapide ici.
 //
-// Anti-gel v2 (Studio Wiga) :
+// Anti-gel v2 (NINE HANDS | DSP) :
 //  1. moteur de rendu logiciel force sur Windows, applique a chaque nouvelle fenetre hote (peer)
 //     et reverifie toutes les secondes, jamais en boucle ;
 //  2. aucun calcul lourd dans paint() : le fond de la fenetre (degrade, motifs, ombre) est mis en cache

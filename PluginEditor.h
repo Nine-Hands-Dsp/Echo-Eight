@@ -4,7 +4,7 @@
 #include <array>
 
 // =============================================================================
-//  Interface Eight Echo (Studio Wiga) sur le visuel fourni.
+//  Interface Eight Echo (NINE HANDS | DSP) sur le visuel fourni.
 //  L'image de fond (background.png) est la pedale sans potards ni LED :
 //  tous les elements actifs sont redessines en vectoriel par-dessus.
 //  Coordonnees de dessin = pixels de l'image (578 x 896), mises a l'echelle.
