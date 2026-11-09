@@ -408,7 +408,7 @@ def x2_glow():
         pts = np.array([[(p[0] - box[0]) * AS * 4, (p[1] - box[1]) * AS * 4] for p in st], np.int32)
         cv2.polylines(m, [pts], False, 255, thickness=int(X2_W * AS), lineType=cv2.LINE_AA, shift=2)
     mk = m.astype(np.float64) / 255.0
-    E = cv2.GaussianBlur(mk, (0, 0), 4.0 * AS) * 1.1 + cv2.GaussianBlur(mk, (0, 0), 14.0 * AS) * 0.9
+    E = cv2.GaussianBlur(mk, (0, 0), 4.0 * AS) * 0.55 + cv2.GaussianBlur(mk, (0, 0), 14.0 * AS) * 0.45      # lueur reduite de 50 % (nov. 2026)
     x0p, y0p = int(round(box[0] * AS)), int(round(box[1] * AS))
     reg = img[y0p:y0p + nh, x0p:x0p + nw].astype(np.float64)
     yy, xx = np.mgrid[0:nh, 0:nw].astype(np.float64)
