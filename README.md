@@ -3,6 +3,13 @@
 Plugin VST3 (Windows / macOS, + AU sur Mac) reproduisant le fonctionnement d'un delay compact
 11 modes de type DD-8 : mêmes plages, mêmes commandes, mêmes interactions.
 
+<p align="center">
+  <a href="https://github.com/Nine-Hands-Dsp/Echo-Eight/releases/latest/download/EightEcho-VST3-Windows.zip"><img alt="Télécharger pour Windows" src="https://img.shields.io/badge/%E2%AC%87%20T%C3%A9l%C3%A9charger-Windows-0078D6?style=for-the-badge"></a>
+  <a href="https://github.com/Nine-Hands-Dsp/Echo-Eight/releases/latest/download/EightEcho-VST3-macOS.zip"><img alt="Télécharger pour macOS" src="https://img.shields.io/badge/%E2%AC%87%20T%C3%A9l%C3%A9charger-macOS-111111?style=for-the-badge&logo=apple&logoColor=white"></a>
+  <br>
+  <a href="https://github.com/Nine-Hands-Dsp/Echo-Eight/releases/latest"><img alt="Dernière version" src="https://img.shields.io/github/v/release/Nine-Hands-Dsp/Echo-Eight?label=derni%C3%A8re%20version&color=919496"></a>
+</p>
+
 ## Compilation (GitHub)
 Tous les fichiers sont à la racine. Pousser le dossier sur le dépôt : le workflow
 `.github/workflows/build.yml` compile sous `windows-2022` (VST3) et macOS (VST3 + AU).
