@@ -63,7 +63,7 @@ KNOBS = [('elevel', 'E.LEVEL', KL, P(0, 149)[1]), ('mix', 'MIX', KRX, P(0, 149)[
          ('feedback', 'FEEDBACK', KL, P(0, 311)[1]), ('time', 'TIME', KRX, P(0, 311)[1]), ('mode', 'MODE', KRX, P(0, 497)[1])]
 LABEL_DY = 80.0                                  # etiquette sous le potard
 SLOTS = [P(0, y)[1] for y in (124, 175, 228, 279, 331, 383, 435)]
-SLOT_NUM_X = PX0 + 58.0 * KXo
+SLOT_NUM_X = PX0 + 70.0 * KXo                 # numeros decales avec les tubes allonges
 FS_T, FS_B = (KL - 0.0, P(0, 775)[1]), (KRX, P(0, 775)[1])
 FS_T = (CX - (438.0 - 143.0) / 2 * KXo, FS_T[1]); FS_B = (CX + (438.0 - 143.0) / 2 * KXo, FS_B[1])   # footswitches symetriques
 SYNC = (KL, P(0, 491.5)[1]); SYNC_R = 25.0     # grosse LED du bouton SYNC (rayon du dome)
@@ -81,10 +81,10 @@ STATUS = (CX - 210.0 * KXo, P(0, 42)[1], 420.0 * KXo, 30.0)
 # mesures sur la pedale d'origine (ecartement des memoires = 52,3 px d'origine) : tube plat (incruste, sans relief),
 # du bord interieur de l'arete (8 px) jusqu'au bout arrondi (42 px), monte a ~24 degres, 11 px d'epaisseur,
 # acrylique a peine plus clair que la plaque avec un fin liseré clair sur le bord du bas ; centre = hauteur de la memoire
-PIPE_R = 7.0 * KY                              # tubes elargis (demande nov. 2026)
+PIPE_R = 8.6 * KY                              # tubes elargis (demande nov. 2026)
 PIPE_CUT = 8.0 * KXo                           # coupe droite cote arete
 PIPE_A = (PIPE_CUT - 2.0, 7.0 * KY)            # depart (relatif : x depuis PX0, y depuis la memoire)
-PIPE_B = (42.0 * KXo - PIPE_R, -7.0 * KY)      # centre du bout arrondi
+PIPE_B = (52.0 * KXo - PIPE_R, -8.5 * KY)      # centre du bout arrondi (tubes allonges vers la droite, nov. 2026)
 
 # ------------------------------------------------------------------ outils
 YY, XX = np.mgrid[0:H, 0:W].astype(np.float32)
