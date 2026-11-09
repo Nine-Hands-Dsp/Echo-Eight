@@ -12,7 +12,7 @@ pj = json.load(open(os.path.join(HERE, 'print.json')))
 S = 2.0                                                   # px par unite du plugin (fond 1235 x 1800)
 SS = 3                                                    # sur-echantillonnage du dessin vectoriel
 SILK = (230, 236, 241)
-FONTS = {'medium': 'Poppins-Medium.ttf', 'bold': 'Poppins-Bold.ttf', 'light': 'Poppins-Light.ttf'}
+FONTS = {'sans': 'LiberationSans-Bold.ttf', 'mono': 'LiberationMono-Bold.ttf'}
 
 bg = Image.open(os.path.join(ROOT, 'background.png')).convert('RGBA')
 Wp, Hp = bg.size
@@ -33,7 +33,7 @@ def paste_rect(fn, r, op=1.0):
 # lumiere des LED sur la facade (sous la serigraphie)
 G = pj['glows']
 paste_rect('glow_tempo.png', G['tempo']); paste_rect('glow_check_red.png', G['check_red'])
-paste_rect('glow_slot1.png', G['slot0']); paste_rect('glow_sync.png', G['sync']); paste_rect('glow_x2.png', G['x2'])
+paste_rect('glow_slot1.png', G['slot0']); paste_rect('glow_sync.png', G['sync'])
 
 # ------------------------------------------------------------------ serigraphie vectorielle
 K = S * SS
@@ -54,9 +54,11 @@ def text(s, font, em, track, x, y, rot, d=None, im=None):
         t = t.rotate(rot, expand=True)
         im.paste(255, (int(x * K - t.width / 2), int(y * K - t.height / 2)), t)
 
-for t in pj['texts']:
-    if t[0] == 'X2': text(*t, d=drx, im=inkx); continue
-    text(*t)
+for t in pj['texts']: text(*t)
+# lettrage d'origine : titre (serigraphie) et X2 (allume)
+for strokes, wdt, dd in ((pj['title'], pj['titleW'], dr), (pj['x2'], pj['x2W'], drx)):
+    for s_ in strokes:
+        dd.line([(p[0] * K, p[1] * K) for p in s_], fill=255, width=int(round(wdt * K)), joint='curve')
 for (x, y, r) in pj['dots']: dr.ellipse(((x - r) * K, (y - r) * K, (x + r) * K, (y + r) * K), fill=255)
 for li, (x0, y0, x1, y1, w) in enumerate(pj['lines']):
     dd = drx if li >= len(pj['lines']) - 2 else dr          # les deux traits de X2 s'allument avec X2
@@ -67,7 +69,7 @@ for tr in pj['tris']:
 
 # noms des modes autour du potard MODE (alignes vers l'exterieur), STANDARD choisi
 kn = json.load(open(os.path.join(HERE, 'layout.json')))['knobs'][4]
-fm = ImageFont.truetype(os.path.join(ROOT, 'assets', 'fonts', FONTS['medium']), int(round(pj['modeFont'] * K)))
+fm = ImageFont.truetype(os.path.join(ROOT, 'assets', 'fonts', FONTS['sans']), int(round(pj['modeFont'] * K)))
 for i, nm in enumerate(pj['modeNames']):
     a = math.radians(-135 + 27 * i); s_ = math.sin(a)
     px, py = kn[0] + pj['modeLabelR'] * math.sin(a), kn[1] - pj['modeLabelR'] * math.cos(a)
@@ -180,7 +182,7 @@ sp = pj['sprites']
 lay = json.load(open(os.path.join(HERE, 'layout.json')))
 for c in (lay['fsTap'], lay['fsBypass']): paste('footswitch.png', c[0], c[1], sp['fs'])
 paste('led_ice.png', *lay['ledTempo'], sp['led']); paste('led_red.png', *lay['ledCheck'], sp['led'])
-paste('led_slot.png', *lay['slots'][0], sp['slot'])
+paste_rect('pipe_on.png', pj['pipe'][0] + pj['pipeSize'])
 paste('sync_on.png', *lay['sync'], sp['sync'])
 
 # reperes des potards (trait blanc, comme le plugin)
@@ -196,7 +198,7 @@ for (k, v) in zip(lay['knobs'], [0.5, 0.5, 0.4, 0.62, None]):
 
 # ligne d'etat
 st = pj['statusRect']
-fsx = ImageFont.truetype(os.path.join(ROOT, 'assets', 'fonts', FONTS['medium']), int(19 * 0.5 * 2 * 2.03))
+fsx = ImageFont.truetype(os.path.join(ROOT, 'assets', 'fonts', FONTS['mono']), int(17.5 * 2 * 1.01))
 d2.text(((st[0] + st[2] / 2) * S, (st[1] + st[3] / 2) * S), 'P1  STANDARD  500 MS', font=fsx, fill=SILK + (230,), anchor='mm')
 
 os.makedirs(os.path.join(ROOT, 'design'), exist_ok=True)

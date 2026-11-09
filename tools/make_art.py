@@ -3,28 +3,29 @@ EIGHT ECHO (NINE HANDS | DSP) - visuel du plugin, entierement synthetise (v2.0, 
 
 Regle NINE HANDS | DSP des pedales simples : image du plugin de 1235 x 1800 pixels, pedale plein cadre (le boitier touche
 le haut et le bas de l'image, les jacks touchent les bords gauche et droit), fond transparent seulement autour des jacks.
-Boitier : aluminium brosse anodise bleu ardoise (teinte de la pedale d'origine Eight Echo), rendu en 4K (repere de travail
-760 x 958 unites a 4 px par unite = 3040 x 3832 px) puis ramene a 1235 x 1800.
+Boitier : texture d'aluminium brosse fournie par l'utilisateur (assets/kit/brushed_texture.png, 4096 px) teintee du bleu gris
+de la pedale d'origine, rendu en 4K (repere de travail 760 x 958 unites a 4 px par unite) puis ramene a 1235 x 1800.
 Pieces photo du kit NINE HANDS | DSP (tools/photo_controls.py) : potards noirs en aluminium tourne, LED a lentille facettee
-(rouge d'origine, recoloree en bleu glace / vert / orange), footswitch d'Echoflex, embases jack (OUT a gauche, IN a droite).
+(tempo bleu glace, CHECK rouge / vert / orange), grosse LED du bouton SYNC (assets/kit/sync_led_photo.png),
+footswitch d'Echoflex, embases jack (OUT a gauche, IN a droite). Memoires 1-7 : tubes de lumiere comme la pedale d'origine.
 Une seule lumiere pour toute la pedale : en haut a gauche (ombres portees vers le bas a droite).
 
-Textes, graduations, traits, triangles, motif d'anneaux (assets/eight_echo_motif.svg) et logo NINE HANDS | DSP
-(NineHandsLogo.svg) ne sont PAS imprimes dans le fond : le plugin les dessine en vectoriel (Layout.h), nets a toute taille.
+Textes (police de la pedale d'origine : Liberation Sans Bold, metrique Arial ; titre EIGHT ECHO et X2 dans le lettrage
+d'origine reconstruit en traits vectoriels), graduations, traits, triangles, motif d'anneaux (assets/eight_echo_motif.svg)
+et logo NINE HANDS | DSP (NineHandsLogo.svg) ne sont PAS imprimes dans le fond : le plugin les dessine en vectoriel (Layout.h).
 
 Sorties (racine du depot) :
-  background.png      fond 1235 x 1800 RGBA (boitier, potards sans repere, LED eteintes, bouton SYNC eteint, jacks)
+  background.png      fond 1235 x 1800 RGBA (boitier, potards sans repere, LED / tubes eteints, grosse LED SYNC eteinte, jacks)
   footswitch.png      footswitch (photo Echoflex) avec son ombre, dessine par le plugin PAR-DESSUS le motif d'anneaux
   fs_refl.png         reflet (blanc, canal alpha) de la LED voisine sur le flanc de l'ecrou, teinte par le plugin
-  led_*.png           lentilles allumees (glace, rouge, vert, orange ; petite = memoires 1-7)
-  glow_*.png          facade eclairee par chaque LED (canal alpha = seule la lumiere ajoutee)
-  sync_on.png         capuchon du bouton SYNC allume
-  Layout.h, tools/layout.json, design/preview_art.png
-Usage : python3 tools/make_art.py
+  led_*.png, pipe_on.png, sync_on.png   elements allumes
+  glow_*.png          facade eclairee par chaque lumiere (canal alpha = seule la lumiere ajoutee)
+  Layout.h, tools/layout.json, tools/print.json (apercu)
+Usage : python3 tools/make_art.py   (puis python3 tools/preview.py)
 """
 import os, sys, math, json
 import numpy as np, cv2
-from PIL import Image
+from PIL import Image, ImageFont
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -56,23 +57,30 @@ KXo = PW / 524.0
 def P(xo, yo): return (CX + (xo - 289.0) * KXo, PY0 + (yo - 18.0) * KY)
 
 KNOB_R = 52.0
-KNOBS = [('elevel', 'E.LEVEL') + P(204, 149), ('mix', 'MIX') + P(394.5, 149),
-         ('feedback', 'FEEDBACK') + P(204, 311), ('time', 'TIME') + P(394.5, 311), ('mode', 'MODE') + P(396.5, 497)]
-LABEL_DY = 82.0                                  # etiquette sous le potard
-SLOT_X = P(52, 0)[0]; SLOT_NUM_X = P(86, 0)[0]
-SLOTS = [P(52, y)[1] for y in (124, 175, 228, 279, 331, 383, 435)]
-SLOT_LENS = 7.5
-SYNC = P(204, 491.5); SYNC_CAP, SYNC_BEZ = 22.0, 28.0
-LED_T = P(144.5, 621.0); LED_C = P(434.2, 620.0); LED_LENS = 11.0
-TITLE1, TITLE2 = P(289, 611), P(289, 648)
-TRI_UP, TRI_DN = P(141, 679), P(436, 677)
-FS_T, FS_B = P(143, 775), P(438, 775)
+KD = (394.5 - 204.0) / 2 * KXo                   # potards symetriques par rapport au centre de la pedale
+KL, KRX = CX - KD, CX + KD
+KNOBS = [('elevel', 'E.LEVEL', KL, P(0, 149)[1]), ('mix', 'MIX', KRX, P(0, 149)[1]),
+         ('feedback', 'FEEDBACK', KL, P(0, 311)[1]), ('time', 'TIME', KRX, P(0, 311)[1]), ('mode', 'MODE', KRX, P(0, 497)[1])]
+LABEL_DY = 80.0                                  # etiquette sous le potard
+SLOTS = [P(0, y)[1] for y in (124, 175, 228, 279, 331, 383, 435)]
+SLOT_NUM_X = P(86, 0)[0]
+FS_T, FS_B = (KL - 0.0, P(0, 775)[1]), (KRX, P(0, 775)[1])
+FS_T = (CX - (438.0 - 143.0) / 2 * KXo, FS_T[1]); FS_B = (CX + (438.0 - 143.0) / 2 * KXo, FS_B[1])   # footswitches symetriques
+SYNC = (KL, P(0, 491.5)[1]); SYNC_R = 25.0     # grosse LED du bouton SYNC (rayon du dome)
+LED_LENS = 11.0
+LED_T = (FS_T[0], P(0, 621.0)[1]); LED_C = (FS_B[0], P(0, 621.0)[1])          # LED alignees sur les footswitches
+TITLE_C = (CX, P(0, 637.5)[1])
+TRI_UP, TRI_DN = (FS_T[0], P(0, 679)[1]), (FS_B[0], P(0, 677)[1])
 FS_FLATS = 98.0
 X2 = (CX, FS_T[1] + 2.0)
 FS_LABEL_Y = P(0, 860)[1]
 LOGO_C = (CX, P(0, 861)[1]); LOGO_W = 186.0
 JACK_YS = [P(0, 480)[1], P(0, 622)[1]]           # A, B
 STATUS = (CX - 210.0 * KXo, P(0, 42)[1], 420.0 * KXo, 30.0)
+# tubes de lumiere des memoires (comme la pedale d'origine) : sortent de la tranche gauche en montant vers la droite
+PIPE_A = (-3.0, 9.0)                            # extremite dans la tranche (relatif : x depuis PX0, y depuis la memoire)
+PIPE_B = (40.0, -8.0)                           # bout arrondi
+PIPE_R = 5.6
 
 # ------------------------------------------------------------------ outils
 YY, XX = np.mgrid[0:H, 0:W].astype(np.float32)
@@ -100,7 +108,7 @@ def over(dst, rgba, x0, y0):
     reg = dst[Y0 + sy0:Y0 + ey, X0 + sx0:X0 + ex]
     dst[Y0 + sy0:Y0 + ey, X0 + sx0:X0 + ex] = reg * (1 - a) + rgba[sy0:ey, sx0:ex, :3] * a
 
-# ------------------------------------------------------------------ 1. boitier : aluminium brosse anodise bleu ardoise, arete arrondie
+# ------------------------------------------------------------------ 1. boitier : texture d'alu brosse fournie, teinte bleu gris, arete arrondie
 print('boitier 4K...')
 sd = rrect_sd(UX, UY, PX0, PY0, PW, PH, PR)
 body = np.clip(0.5 - sd * AS, 0, 1).astype(np.float32)
@@ -113,26 +121,27 @@ del hgt
 nrm = np.dstack([-gx, -gy, np.ones_like(gx)]).astype(np.float32); del gx, gy
 nrm /= np.linalg.norm(nrm, axis=2, keepdims=True)
 ndl = np.clip(nrm @ L.astype(np.float32), 0, 1); ndh = np.clip(nrm @ HV.astype(np.float32), 0, 1); del nrm
-paint = np.array([86.0, 103.0, 116.0], np.float32)            # bleu ardoise de la pedale d'origine
-# brossage horizontal : bruit tres allonge dans le sens x (stries fines + bandes plus larges), a 4 px par unite
-rng = np.random.default_rng(3)
-def streaks(sig_y, len_x, amp, seed):
-    n = np.random.default_rng(seed).standard_normal((H, W // 8 + 2)).astype(np.float32)
-    n = cv2.resize(n, (W, H), interpolation=cv2.INTER_LINEAR)
-    n = cv2.GaussianBlur(n, (0, 0), sigmaX=len_x * AS, sigmaY=sig_y * AS)
-    return n / (n.std() + 1e-6) * amp
-brush = streaks(0.12, 9.0, 5.0, 31) + streaks(0.45, 40.0, 3.5, 32) + streaks(2.5, 120.0, 2.0, 33)
-# reflet anisotrope du metal brosse : large bande claire (la lumiere en haut a gauche glisse le long du brossage)
+# texture : 4096 px de cote, le boitier (PW x PH unites) la couvre sans repetition ; seul le relief (stries) est garde,
+# la couleur vient de la teinte de la pedale d'origine
+tex = np.asarray(Image.open(os.path.join(ROOT, 'assets', 'kit', 'brushed_texture.png')).convert('L')).astype(np.float32)
+bx0, by0, bw, bh = int(PX0 * AS), int(PY0 * AS), int(PW * AS), int(PH * AS)
+tsc = max(bw / tex.shape[1], bh / tex.shape[0])
+tex = cv2.resize(tex, (int(math.ceil(tex.shape[1] * tsc)), int(math.ceil(tex.shape[0] * tsc))), interpolation=cv2.INTER_CUBIC)
+texf = np.full((H, W), float(tex.mean()), np.float32)
+th_, tw_ = min(bh, tex.shape[0]), min(bw, tex.shape[1])
+texf[by0:by0 + th_, bx0:bx0 + tw_] = tex[:th_, :tw_]
+tex_rel = texf / float(tex.mean())               # ~1 +- 7 %
+del tex, texf
+paint = np.array([86.0, 103.0, 116.0], np.float32)            # bleu gris de la pedale d'origine
 sheen = np.exp(-(((UY - (PY0 + 0.24 * PH)) / (0.30 * PH)) ** 2)) * (0.75 + 0.25 * np.exp(-((UX - (PX0 + 0.3 * PW)) / (0.7 * PW)) ** 2))
 sheen = sheen.astype(np.float32)
 spec_tint = np.array([0.92, 0.97, 1.0], np.float32)
-encl = paint * (0.62 + 0.52 * ndl)[..., None]
-encl += (brush * (0.65 + 0.7 * sheen))[..., None] * np.array([0.92, 0.98, 1.04], np.float32)
-encl += (26.0 * sheen)[..., None] * spec_tint
+contrast = 1.05                                                  # relief des stries un peu accentue (la texture est douce)
+encl = paint * ((0.62 + 0.52 * ndl) * (1.0 + (tex_rel - 1.0) * contrast))[..., None]
+encl += ((tex_rel - 1.0) * 40.0 * sheen)[..., None] * spec_tint          # les stries accrochent la lumiere dans le reflet
+encl += (24.0 * sheen)[..., None] * spec_tint
 encl += (70 * ndh ** 50 + 16 * ndh ** 6)[..., None] * spec_tint
-encl += fbm((H, W), [2, 7], [1.1, 0.6], 4)[..., None]          # grain fin de l'anodisation
-del ndl, ndh, brush
-# leger degrade : un peu plus sombre en bas a droite (lumiere en haut a gauche)
+del ndl, ndh, tex_rel
 encl *= (1.04 - 0.10 * np.clip((UX - PX0) / PW * 0.4 + (UY - PY0) / PH * 0.6, 0, 1))[..., None]
 img = encl * body[..., None]
 del encl
@@ -147,7 +156,7 @@ def occlusion(mask, strength=1.0):
 m_ = np.zeros((H, W), np.float32)
 for (_, _, x, y) in KNOBS:
     m_ = np.maximum(m_, np.clip((KNOB_R - np.hypot(UX - x, UY - y)) * AS, 0, 1))
-m_ = np.maximum(m_, np.clip((SYNC_BEZ - np.hypot(UX - SYNC[0], UY - SYNC[1])) * AS, 0, 1))
+m_ = np.maximum(m_, np.clip((SYNC_R - np.hypot(UX - SYNC[0], UY - SYNC[1])) * AS, 0, 1) * 0.7)
 occlusion(m_)
 del m_
 
@@ -156,60 +165,74 @@ for (_, _, x, y) in KNOBS:
     KN, KS = PC.knob_sprite(KNOB_R, AS)
     over(img, KN, (x - KS / 2) * AS, (y - KS / 2) * AS)
 
-# ------------------------------------------------------------------ 4. LED eteintes (photo du kit) + lentilles allumees
+# ------------------------------------------------------------------ 4. LED tempo / CHECK eteintes (photo du kit) + lentilles allumees
 LEDS = {}
 def led(name, R, colour):
     off, on, S_ = PC.led_sprites(R, AS, colour=colour)
     LEDS[name] = (on, S_)
     return off, S_
-for c, rl in ((LED_T, None), (LED_C, None)):
-    pass
 off, S_ = led('led_ice', LED_LENS, 'ice'); over(img, off, (LED_T[0] - S_ / 2) * AS, (LED_T[1] - S_ / 2) * AS)
 off, S_ = led('led_red', LED_LENS, 'red'); over(img, off, (LED_C[0] - S_ / 2) * AS, (LED_C[1] - S_ / 2) * AS)
 led('led_green', LED_LENS, 'green'); led('led_orange', LED_LENS, 'orange')
-offS, SS_ = led('led_slot', SLOT_LENS, 'ice')
-for y in SLOTS:
-    over(img, offS, (SLOT_X - SS_ / 2) * AS, (y - SS_ / 2) * AS)
 
-# ------------------------------------------------------------------ 5. bouton SYNC : bague chromee + capuchon en acrylique depoli
-def sync_sprites():
-    S_ = SYNC_BEZ * 2.9
-    n = int(round(S_ * AS))
-    yy, xx = np.mgrid[0:n, 0:n].astype(np.float32)
-    r = np.hypot(xx + 0.5 - n / 2, yy + 0.5 - n / 2) / AS
-    # hauteurs : bague torique entre le capuchon et le bord, capuchon legerement bombe
-    rb0, rb1 = SYNC_CAP + 0.6, SYNC_BEZ
-    mid, half = (rb0 + rb1) / 2, (rb1 - rb0) / 2
-    tor = np.sqrt(np.clip(1 - ((r - mid) / half) ** 2, 0, 1)) * 3.2
-    cap = 1.6 + 2.6 * np.clip(1 - (r / SYNC_CAP) ** 2, 0, 1)
-    h_ = np.where(r <= SYNC_CAP, cap, np.where(r <= rb1, tor, 0)).astype(np.float32)
-    gy_, gx_ = np.gradient(cv2.GaussianBlur(h_, (0, 0), 0.6 * AS / 2), 1.0 / AS)
-    nn = np.dstack([-gx_, -gy_, np.ones_like(gx_)]); nn /= np.linalg.norm(nn, axis=2, keepdims=True)
-    nl = np.clip(nn @ L, 0, 1); nh = np.clip(nn @ HV, 0, 1)
-    # chrome : environnement (sol sombre / ciel clair selon la normale) + reflet vif
-    env = 0.5 + 0.5 * (-nn[..., 1] * 0.7 - nn[..., 0] * 0.3)
-    chrome = (60 + 150 * env ** 1.4)[..., None] * np.array([0.95, 0.98, 1.0]) + (255 * nh ** 60)[..., None]
-    # capuchon depoli eteint : gris bleute, diffusion douce, grain fin
-    gr = np.random.default_rng(8).standard_normal((n, n)).astype(np.float32)
-    gr = cv2.GaussianBlur(gr, (0, 0), 0.5) * 3.0
-    capc = (np.array([150.0, 168.0, 182.0]) * (0.55 + 0.5 * nl)[..., None]) + (40 * nh ** 12)[..., None] + gr[..., None]
-    in_cap = np.clip((SYNC_CAP - r) * AS, 0, 1)
-    gap = np.clip(1 - np.abs(r - (SYNC_CAP + 0.3)) * AS / 1.2, 0, 1)            # joint sombre
-    rgb = chrome * (1 - in_cap[..., None]) + capc * in_cap[..., None]
-    rgb *= (1 - 0.75 * gap)[..., None]
-    a = np.clip((rb1 - r) * AS, 0, 1)
-    spr = PC._with_shadow(np.clip(rgb, 0, 255).astype(np.float32), a.astype(np.float32), 2 * SYNC_BEZ * AS, 0.5)
-    # capuchon allume : bleu glace diffuse, coeur clair, texture depolie conservee
-    core = np.exp(-(r / (SYNC_CAP * 0.78)) ** 2)
-    lit = (np.array([150.0, 205.0, 255.0]) * (1 - 0.6 * core[..., None]) + np.array([245.0, 252.0, 255.0]) * 0.6 * core[..., None])
-    lit = lit * (0.86 + 0.14 * nl)[..., None] + gr[..., None] + (30 * nh ** 12)[..., None]
-    lit_a = in_cap * (1 - 0.7 * gap)
-    on = np.dstack([np.clip(lit, 0, 255), lit_a * 255]).astype(np.float32)
-    return spr, on, S_
-SY_OFF, SY_ON, SY_S = sync_sprites()
+# ------------------------------------------------------------------ 5. grosse LED du bouton SYNC (photo fournie : dome transparent)
+SY_OFF, SY_ON, SY_S = PC.big_led_sprites(SYNC_R, AS)
 over(img, SY_OFF, (SYNC[0] - SY_S / 2) * AS, (SYNC[1] - SY_S / 2) * AS)
 
-# ------------------------------------------------------------------ 6. embases jack (photo du kit) : OUT a gauche, IN a droite (A et B)
+# ------------------------------------------------------------------ 6. tubes de lumiere des memoires 1-7 (acrylique depoli)
+print('tubes de lumiere...')
+def seg_dist(px, py, a, b):
+    ax, ay = a; bx, by = b
+    vx, vy = bx - ax, by - ay
+    t = np.clip(((px - ax) * vx + (py - ay) * vy) / (vx * vx + vy * vy), 0, 1)
+    return np.hypot(px - (ax + t * vx), py - (ay + t * vy)), t
+PIPE_BOX = (-8.0, -26.0, 74.0, 50.0)            # zone d'un tube (x0, y0 relatifs, largeur, hauteur)
+def pipe_layers(ys):
+    """renvoie (x0, y0 en unites, rgba eteint, rgba allume) d'un tube a la hauteur ys"""
+    x0u, y0u = PX0 + PIPE_BOX[0], ys + PIPE_BOX[1]
+    n_w, n_h = int(PIPE_BOX[2] * AS), int(PIPE_BOX[3] * AS)
+    yy, xx = np.mgrid[0:n_h, 0:n_w].astype(np.float32)
+    px, py = x0u + (xx + 0.5) / AS, y0u + (yy + 0.5) / AS
+    A = (PX0 + PIPE_A[0], ys + PIPE_A[1]); B = (PX0 + PIPE_B[0], ys + PIPE_B[1])
+    d, t = seg_dist(px, py, A, B)
+    cov = np.clip((PIPE_R - d) * AS, 0, 1)
+    # tranche gauche : le tube sort du boitier (coupe sur l'arete, comme sur la pedale d'origine)
+    cov *= np.clip((px - (PX0 + 0.6)) * AS, 0, 1)
+    # cylindre couche : normale dans la largeur du tube
+    ux, uy = (B[0] - A[0]), (B[1] - A[1]); ln = math.hypot(ux, uy); ux, uy = ux / ln, uy / ln
+    nx_, ny_ = -uy, ux                                           # perpendiculaire (vers le haut a gauche)
+    sgn = np.sign((px - A[0]) * nx_ + (py - A[1]) * ny_)
+    s = np.clip(d / PIPE_R, 0, 1) * sgn                          # -1 .. 1 dans la largeur
+    nz = np.sqrt(np.clip(1 - s * s, 0, 1))
+    nrm = np.dstack([s * nx_ * 0.9, s * ny_ * 0.9, nz]); nrm /= np.linalg.norm(nrm, axis=2, keepdims=True)
+    ndl = np.clip(nrm @ L, 0, 1); ndh = np.clip(nrm @ HV, 0, 1)
+    plate = img[int(y0u * AS):int(y0u * AS) + n_h, int(x0u * AS):int(x0u * AS) + n_w]
+    frost = np.array([196.0, 208.0, 216.0])
+    # acrylique depoli translucide : on voit la plaque au travers, un peu plus clair, reflet doux sur le dessus
+    offc = plate * 0.62 + frost * (0.20 + 0.16 * ndl)[..., None] + (38 * ndh ** 8)[..., None]
+    edge = np.clip((np.abs(s) - 0.72) / 0.28, 0, 1)
+    offc = offc * (1 - 0.22 * edge[..., None])
+    # bout du tube un peu plus clair (lumiere qui sort par l'extremite polie)
+    offc += (12 * np.clip((t - 0.85) / 0.15, 0, 1))[..., None]
+    off_rgba = np.dstack([np.clip(offc, 0, 255), cov * 255]).astype(np.float32)
+    # allume : bleu glace, coeur presque blanc au centre du tube et vers le bout
+    core = np.exp(-(s / 0.55) ** 2) * (0.55 + 0.45 * t)
+    lit = np.array([70.0, 175.0, 255.0]) * (0.75 + 0.25 * nz)[..., None] + np.array([185.0, 80.0, 0.0]) * core[..., None]
+    lit = np.minimum(lit + (60 * ndh ** 20)[..., None], 255)
+    on_rgba = np.dstack([lit, cov * 255]).astype(np.float32)
+    return x0u, y0u, off_rgba, on_rgba
+# ombre douce des tubes sur la plaque (vers le bas a droite)
+PIPES = []
+for ys in SLOTS:
+    x0u, y0u, off_rgba, on_rgba = pipe_layers(ys)
+    a = off_rgba[..., 3] / 255.0
+    sh = cv2.GaussianBlur(np.roll(np.roll(a, int(1.6 * AS), 1), int(2.4 * AS), 0), (0, 0), 2.0 * AS) * 0.30
+    reg = img[int(y0u * AS):int(y0u * AS) + a.shape[0], int(x0u * AS):int(x0u * AS) + a.shape[1]]
+    reg *= (1 - sh * (1 - a))[..., None]
+    over(img, off_rgba, x0u * AS, y0u * AS)
+    PIPES.append((x0u, y0u, on_rgba))
+
+# ------------------------------------------------------------------ 7. embases jack (photo du kit) : OUT a gauche, IN a droite (A et B)
 print('jacks...')
 alpha = body.copy()
 for side in (-1, 1):
@@ -224,19 +247,19 @@ for side in (-1, 1):
     for jy in JACK_YS:
         x0 = int(round((PX0 * AS - jw) if side < 0 else ((PX0 + PW) * AS)))
         y0 = int(round(jy * AS - jh / 2))
-        occ = np.zeros((H, W), np.float32)
-        occ[y0:y0 + jh, x0:x0 + jw] = j[..., 3] / 255.0
-        contact = cv2.GaussianBlur(occ, (0, 0), 3.0 * AS)
-        soft = cv2.GaussianBlur(occ, (0, 0), 16.0 * AS)
-        o = np.clip(contact * 0.9 + soft * 1.5, 0, 0.55) * (0.25 if side > 0 else 0.6)
-        img *= (1.0 - o * body)[..., None]
+        if side > 0:                                  # jacks de gauche : plus d'ombre sur la facade (demande nov. 2026)
+            occ = np.zeros((H, W), np.float32)
+            occ[y0:y0 + jh, x0:x0 + jw] = j[..., 3] / 255.0
+            contact = cv2.GaussianBlur(occ, (0, 0), 3.0 * AS)
+            soft = cv2.GaussianBlur(occ, (0, 0), 16.0 * AS)
+            o = np.clip(contact * 0.9 + soft * 1.5, 0, 0.55) * 0.25
+            img *= (1.0 - o * body)[..., None]
+            del occ, contact, soft, o
         over(img, j, x0, y0)
         alpha[y0:y0 + jh, x0:x0 + jw] = np.maximum(alpha[y0:y0 + jh, x0:x0 + jw], j[..., 3] / 255.0)
-        del occ, contact, soft, o
 
-# ------------------------------------------------------------------ 7. footswitch (sprite separe : dessine au-dessus du motif d'anneaux)
+# ------------------------------------------------------------------ 8. footswitch (sprite separe : dessine au-dessus du motif d'anneaux)
 FSPR, FSREFL, FS_W, FS_BTN = PC.footswitch_sprite(FS_FLATS, AS, refl_colour=(255.0, 255.0, 255.0))
-# occlusion douce du footswitch sur la facade (l'ombre portee est dans le sprite)
 fa = np.zeros((H, W), np.float32); n_ = FSPR.shape[0]
 for c in (FS_T, FS_B):
     x0, y0 = int(round((c[0] - FS_W / 2) * AS)), int(round((c[1] - FS_W / 2) * AS))
@@ -245,7 +268,7 @@ soft = cv2.GaussianBlur(fa, (0, 0), 14.0 * AS)
 img *= (1.0 - np.clip(soft * 0.7, 0, 0.35) * (1 - fa) * body)[..., None]
 del fa, soft
 
-# ------------------------------------------------------------------ 8. sorties : recadrage 1235 x 1800
+# ------------------------------------------------------------------ 9. sorties : recadrage 1235 x 1800
 def to_out(a, ow=OUT_W, oh=OUT_H):
     x0, x1 = CROP_X0 * AS, (CROP_X0 + CROP_W) * AS
     y0, y1 = PY0 * AS, (PY0 + PH) * AS
@@ -256,58 +279,134 @@ out_rgb = np.clip(to_out(img), 0, 255); out_a = np.clip(to_out(alpha), 0, 1)
 Image.fromarray(np.dstack([out_rgb, out_a * 255]).astype(np.uint8), 'RGBA').save(os.path.join(ROOT, 'background.png'), optimize=True)
 
 OUTS = 2.0 * SC                                  # pixels des sprites par unite de travail (= 2 px par unite du plugin)
-def save_sprite(rgba, fn, units):
-    n = int(round(units * OUTS))
+def save_sprite(rgba, fn, units_w, units_h=None):
+    nw = int(round(units_w * OUTS)); nh = int(round((units_h if units_h else units_w) * OUTS))
     pm = rgba.astype(np.float32).copy(); pm[..., :3] *= pm[..., 3:4] / 255.0
-    pm = cv2.resize(pm, (n, n), interpolation=cv2.INTER_AREA)
+    pm = cv2.resize(pm, (nw, nh), interpolation=cv2.INTER_AREA)
     a = np.clip(pm[..., 3:4], 1e-3, 255); pm[..., :3] = np.where(pm[..., 3:4] > 0.3, pm[..., :3] * 255.0 / a, 0)
     Image.fromarray(np.clip(pm, 0, 255).astype(np.uint8), 'RGBA').save(os.path.join(ROOT, fn), optimize=True)
 save_sprite(FSPR, 'footswitch.png', FS_W)
 save_sprite(FSREFL.astype(np.float32), 'fs_refl.png', FS_W)
 for k, (on, S_) in LEDS.items(): save_sprite(on, k + '.png', S_)
 save_sprite(SY_ON, 'sync_on.png', SY_S)
+save_sprite(PIPES[0][2], 'pipe_on.png', PIPE_BOX[2], PIPE_BOX[3])
+for f_ in ('led_slot.png', 'glow_x2.png'):
+    if os.path.exists(os.path.join(ROOT, f_)): os.remove(os.path.join(ROOT, f_))
 
-# ------------------------------------------------------------------ 9. facade eclairee par les LED (calques alpha : seule la lumiere ajoutee)
-def glow(c, GR, col, ring, fn, h1=6.0, h2=22.0, gain=1.0):
-    x0p, y0p = round((c[0] - GR) * AS), round((c[1] - GR) * AS)
-    size = round(2 * GR * AS)
-    reg = img[y0p:y0p + size, x0p:x0p + size].astype(np.float64)
-    yy, xx = np.mgrid[0:size, 0:size].astype(np.float64)
-    d = np.hypot((xx + 0.5) / AS - GR, (yy + 0.5) / AS - GR)
-    E = gain * (1.1 * h1 ** 3 / (d ** 2 + h1 ** 2) ** 1.5 + 0.176 * h2 ** 3 / (d ** 2 + h2 ** 2) ** 1.5)
-    E *= np.clip((GR - d) / (0.27 * GR), 0, 1)
-    E[d < ring] = 0.0
+# ------------------------------------------------------------------ 10. facade eclairee par les lumieres (calques alpha : seule la lumiere ajoutee)
+def glow(sources, box, col, keep_out, fn, h1=6.0, h2=22.0, gain=1.0):
+    """sources : liste de (x, y, poids) ; box : (x0, y0, w, h) en unites ; keep_out(px, py) -> masque (0 = pas de lumiere)"""
+    x0u, y0u, wu, hu = box
+    x0p, y0p = int(round(x0u * AS)), int(round(y0u * AS))
+    nw, nh = int(round(wu * AS)), int(round(hu * AS))
+    reg = img[y0p:y0p + nh, x0p:x0p + nw].astype(np.float64)
+    yy, xx = np.mgrid[0:nh, 0:nw].astype(np.float64)
+    px, py = x0u + (xx + 0.5) / AS, y0u + (yy + 0.5) / AS
+    E = np.zeros((nh, nw))
+    for (sx, sy, wgt) in sources:
+        d2 = (px - sx) ** 2 + (py - sy) ** 2
+        E += wgt * gain * (1.1 * h1 ** 3 / (d2 + h1 ** 2) ** 1.5 + 0.176 * h2 ** 3 / (d2 + h2 ** 2) ** 1.5)
+    fade = np.minimum.reduce([np.clip((px - x0u) / (0.2 * wu), 0, 1), np.clip((x0u + wu - px) / (0.2 * wu), 0, 1),
+                              np.clip((py - y0u) / (0.2 * hu), 0, 1), np.clip((y0u + hu - py) / (0.2 * hu), 0, 1)])
+    E *= fade * keep_out(px, py) * np.clip(alpha[y0p:y0p + nh, x0p:x0p + nw], 0, 1)
     col = np.array(col)
     lum = reg.mean(2, keepdims=True)
     lit = reg + (reg * 2.0 + 14.0 * np.clip(lum / 60.0, 0.3, 1.6)) * E[..., None] * col
     add = lit - reg
     a = np.clip(np.abs(add).max(-1) / 12.0, 0, 1)
     rgb = np.where(a[..., None] > 1e-3, reg + add / np.maximum(a, 1e-3)[..., None], reg)
-    rgba = np.dstack([np.clip(rgb, 0, 255), a * 255]).astype(np.float32)
-    save_sprite(rgba, fn, 2 * GR)
-    return (c[0] - GR, c[1] - GR, 2 * GR, 2 * GR)
+    save_sprite(np.dstack([np.clip(rgb, 0, 255), a * 255]).astype(np.float32), fn, wu, hu)
+    return box
+def disc_out(c, r): return lambda px, py: (np.hypot(px - c[0], py - c[1]) > r).astype(np.float64)
 print('lumieres...')
 ICE, RED, GREEN, ORANGE = (0.55, 0.82, 1.0), (1.0, 0.2, 0.12), (0.25, 1.0, 0.35), (1.0, 0.55, 0.12)
 GL = {}
-GL['tempo'] = glow(LED_T, 100.0, ICE, LED_LENS * 1.07, 'glow_tempo.png')
+def sq(c, r): return (c[0] - r, c[1] - r, 2 * r, 2 * r)
+GL['tempo'] = glow([(LED_T[0], LED_T[1], 1.0)], sq(LED_T, 100.0), ICE, disc_out(LED_T, LED_LENS * 1.07), 'glow_tempo.png')
 for nm, col in (('red', RED), ('green', GREEN), ('orange', ORANGE)):
-    GL['check_' + nm] = glow(LED_C, 100.0, col, LED_LENS * 1.07, 'glow_check_' + nm + '.png')
-for i, y in enumerate(SLOTS):
-    GL['slot%d' % i] = glow((SLOT_X, y), 46.0, ICE, SLOT_LENS * 1.07, 'glow_slot%d.png' % (i + 1), h1=4.0, h2=13.0, gain=0.8)
-GL['sync'] = glow(SYNC, 80.0, ICE, SYNC_BEZ + 0.5, 'glow_sync.png', h1=9.0, h2=24.0, gain=0.55)
-GL['x2'] = glow(X2, 70.0, ICE, 0.0, 'glow_x2.png', h1=10.0, h2=26.0, gain=0.35)
+    GL['check_' + nm] = glow([(LED_C[0], LED_C[1], 1.0)], sq(LED_C, 100.0), col, disc_out(LED_C, LED_LENS * 1.07), 'glow_check_' + nm + '.png')
+for i, ys in enumerate(SLOTS):
+    A = (PX0 + 2.0, ys + PIPE_A[1] - 1.5); B = (PX0 + PIPE_B[0], ys + PIPE_B[1])
+    src = [(A[0] + (B[0] - A[0]) * k, A[1] + (B[1] - A[1]) * k, 0.18 + 0.12 * k) for k in np.linspace(0, 1, 8)]
+    keep = (lambda A_, B_: (lambda px, py: (seg_dist(px, py, A_, B_)[0] > PIPE_R).astype(np.float64)))((PX0 + PIPE_A[0], ys + PIPE_A[1]), B)
+    GL['slot%d' % i] = glow(src, (PX0 - 4.0, ys - 40.0, 100.0, 76.0), ICE, keep, 'glow_slot%d.png' % (i + 1), h1=4.0, h2=14.0, gain=1.6)
+GL['sync'] = glow([(SYNC[0], SYNC[1], 1.0)], sq(SYNC, 82.0), ICE, disc_out(SYNC, SYNC_R * 0.97), 'glow_sync.png', h1=10.0, h2=26.0, gain=0.6)
+PIPE_ON = [(x0u, y0u) for (x0u, y0u, _) in PIPES]
 
-# ------------------------------------------------------------------ 10. serigraphie vectorielle (dessinee par le plugin) : textes, points, traits
+# ------------------------------------------------------------------ 11. lettrage d'origine (titre EIGHT ECHO, X2) en traits vectoriels
+#     reconstruit d'apres le visuel d'origine (pixels de l'ancien visuel 578 x 896) : traits d'epaisseur constante,
+#     angles arrondis, extremites droites ; le plugin les trace avec PathStrokeType (butt) et les remplit
+def arc(cx, cy, r, a0, a1, n=10):
+    return [(cx + r * math.cos(math.radians(a0 + (a1 - a0) * k / n)), cy + r * math.sin(math.radians(a0 + (a1 - a0) * k / n))) for k in range(n + 1)]
+LW = 6.5                                          # epaisseur du trait (pixels d'origine)
+hw = LW / 2
+def glyph(ch, x, top, h=30.5):
+    y0, y1, ym = top + hw, top + h - hw, top + h / 2
+    out = []
+    if ch == 'E':
+        w = 32.5; rc = 8.5; xl = x + hw
+        out.append([(x + w, y0)] + arc(xl + rc, y0 + rc, rc, 270, 180) + arc(xl + rc, y1 - rc, rc, 180, 90) + [(x + w, y1)])
+        out.append([(xl, ym), (x + w - 1.0, ym)])
+    elif ch == 'I':
+        out.append([(x + hw, top), (x + hw, top + h)]); w = LW
+    elif ch == 'G':
+        w = 36.0; rc = 13.0; xl = x + hw; xr = x + w - hw
+        yb = top + 16.0                                               # barre interieure
+        out.append([(x + w, y0)] + arc(xl + rc, y0 + rc, rc, 270, 180) + arc(xl + rc, y1 - rc, rc, 180, 90) + [(xr, y1), (xr, yb - hw)])
+        out.append([(x + 18.0, yb), (x + w, yb)])
+    elif ch == 'H':
+        w = 34.5
+        out.append([(x + hw, top), (x + hw, top + h)]); out.append([(x + w - hw, top), (x + w - hw, top + h)])
+        out.append([(x + hw, top + 14.5), (x + w - hw, top + 14.5)])
+    elif ch == 'T':
+        w = 33.0
+        out.append([(x, y0), (x + w, y0)]); out.append([(x + w / 2, y0), (x + w / 2, top + h)])
+    elif ch == 'C':
+        w = 35.0; rc = 13.0; xl = x + hw
+        out.append([(x + w, y0)] + arc(xl + rc, y0 + rc, rc, 270, 180) + arc(xl + rc, y1 - rc, rc, 180, 90) + [(x + w, y1)])
+    elif ch == 'O':
+        w = 38.0; rc = 12.5; xl, xr = x + hw, x + w - hw
+        pts = arc(xl + rc, y0 + rc, rc, 180, 270) + arc(xr - rc, y0 + rc, rc, 270, 360) + arc(xr - rc, y1 - rc, rc, 0, 90) + arc(xl + rc, y1 - rc, rc, 90, 180)
+        out.append(pts + [pts[0], pts[1]])
+    elif ch == 'X':
+        w = 32.0
+        out.append([(x + 1.5, top), (x + w - 1.5, top + h)]); out.append([(x + w - 1.5, top), (x + 1.5, top + h)])
+    elif ch == '2':
+        w = 31.0; rc = 7.0; xl, xr = x + hw, x + w - hw
+        out.append([(x, y0)] + arc(xr - rc, y0 + rc, rc, 270, 360) + arc(xr - rc, ym - rc, rc, 0, 90) + arc(xl + rc, ym + rc, rc, 270, 180)
+                   + [(xl, y1), (x + w, y1)])
+    return out, w
+def word(txt, x, top, gaps):
+    strokes = []
+    for ch, g in zip(txt, gaps):
+        s, w = glyph(ch, x, top); strokes += s; x += w + g
+    return strokes, x
+# positions mesurees sur le visuel d'origine (bords gauches) : EIGHT 208 / 246 / 258 / 299.5 / 338.5, ECHO 213 / 249 / 289 / 328.5
+tstrokes = []
+for txt, xs, top in (('EIGHT', (208.0, 246.0, 258.0, 299.5, 338.5), 603.0), ('ECHO', (213.0, 249.0, 289.0, 328.5), 641.0)):
+    for ch, x in zip(txt, xs):
+        tstrokes += glyph(ch, x, top)[0]
+x2strokes = glyph('X', 0.0, 0.0)[0] + glyph('2', 38.0, 0.0)[0]
+TITLE_OLD_C = ((208.0 + 371.5) / 2, (603.0 + 672.0) / 2)
+TK = KY                                           # meme echelle en x et y (lettrage non deforme)
+def tmap(p, c_old, c_new, k=TK): return (c_new[0] + (p[0] - c_old[0]) * k, c_new[1] + (p[1] - c_old[1]) * k)
+TITLE_STROKES = [[tmap(p, TITLE_OLD_C, TITLE_C) for p in s] for s in tstrokes]
+X2K = TK * 0.80                                   # X2 un peu plus petit que le titre
+X2_STROKES = [[tmap(p, (34.5, 15.25), X2, X2K) for p in s] for s in x2strokes]
+TITLE_W, X2_W = LW * TK, LW * X2K
+TITLE_EXT = (TITLE_C[0] - (371.5 - 208.0) / 2 * TK, TITLE_C[1] - 34.5 * TK, (371.5 - 208.0) * TK, 69.0 * TK)
+
+# ------------------------------------------------------------------ 12. serigraphie vectorielle (dessinee par le plugin) : textes, points, traits
 VTEXT, VDOTS, VLINES, VTRI = [], [], [], []
 def T(s, font, em, track, x, y, rot=0.0): VTEXT.append((s, font, em, track, x, y, rot))
+LABEL_EM = 17.5
 for (pid, lab, x, y) in KNOBS:
-    T(lab, 'medium', 17.0, 2.2, x, y + LABEL_DY)
+    T(lab, 'sans', LABEL_EM, 0.6, x, y + LABEL_DY)
     if pid != 'mode':
         for i in range(11):                               # graduations 0 a 10 sur 270 degres (course des potards)
             a = math.radians(-135 + 27 * i)
             rr = KNOB_R + 10.0
             VDOTS.append((x + rr * math.sin(a), y - rr * math.cos(a), 1.7))
-# selecteur de mode : un trait par position (les noms des modes sont dessines par le plugin, mode choisi en surbrillance)
 MODE_NAMES = ["LOOP", "ANALOG", "STANDARD", "TAPE", "WARM", "REVERSE", "+RV", "SHIM", "MOD", "WARP", "GLT"]
 mx, my = KNOBS[4][2], KNOBS[4][3]
 for i in range(11):
@@ -315,33 +414,32 @@ for i in range(11):
     r0, r1 = KNOB_R + 4.0, KNOB_R + 10.0
     VLINES.append((mx + r0 * math.sin(a), my - r0 * math.cos(a), mx + r1 * math.sin(a), my - r1 * math.cos(a), 2.0))
 MODE_LABEL_R = KNOB_R + 15.0
-T('SYNC', 'medium', 17.0, 2.2, SYNC[0], KNOBS[4][3] + LABEL_DY)
-for i, y in enumerate(SLOTS): T(str(i + 1), 'medium', 17.0, 0.0, SLOT_NUM_X, y)
-T('EIGHT', 'bold', 36.0, 6.0, TITLE1[0], TITLE1[1])
-T('ECHO', 'bold', 36.0, 6.0, TITLE2[0], TITLE2[1])
-T('TAP', 'medium', 17.0, 2.2, FS_T[0], FS_LABEL_Y)
-T('BYPASS', 'medium', 17.0, 2.2, FS_B[0], FS_LABEL_Y)
-T('X2', 'bold', 34.0, 2.0, X2[0], X2[1])
-for sgn in (-1, 1):                                       # traits de part et d'autre de X2
-    VLINES.append((X2[0] + sgn * 30.0, X2[1], X2[0] + sgn * 50.0, X2[1], 2.6))
+T('SYNC', 'sans', LABEL_EM, 0.6, SYNC[0], KNOBS[4][3] + LABEL_DY)
+for i, y in enumerate(SLOTS): T(str(i + 1), 'sans', 19.0, 0.0, SLOT_NUM_X, y - 14.0)
+T('TAP', 'sans', LABEL_EM, 0.6, FS_T[0], FS_LABEL_Y)
+T('BYPASS', 'sans', LABEL_EM, 0.6, FS_B[0], FS_LABEL_Y)
 for nm, jy in zip(('A', 'B'), JACK_YS):
-    T('OUT ' + nm, 'medium', 14.0, 1.6, PX0 + 21.0, jy, 90.0)
-    T('IN ' + nm, 'medium', 14.0, 1.6, PX0 + PW - 21.0, jy, 90.0)
+    T('OUT ' + nm, 'sans', 14.5, 0.8, PX0 + 21.0, jy, 90.0)
+    T('IN ' + nm, 'sans', 14.5, 0.8, PX0 + PW - 21.0, jy, 90.0)
+X2_HALF = 34.0 * X2K
+for sgn in (-1, 1):                                       # traits de part et d'autre de X2 (s'allument avec X2)
+    VLINES.append((X2[0] + sgn * (X2_HALF + 9.0), X2[1], X2[0] + sgn * (X2_HALF + 29.0), X2[1], 2.6))
 def tri(c, up, s=12.0):
     if up: VTRI.append((c[0] - s, c[1] + s * 0.42, c[0] + s, c[1] + s * 0.42, c[0], c[1] - s * 0.62))
     else:  VTRI.append((c[0] - s, c[1] - s * 0.42, c[0] + s, c[1] - s * 0.42, c[0], c[1] + s * 0.62))
 tri(TRI_UP, True); tri(TRI_DN, False)
-# zones reservees : le motif d'anneaux s'interrompt autour des inscriptions qu'il croise (comme une serigraphie)
-from PIL import ImageFont
-_FF = {k: os.path.join(ROOT, 'assets', 'fonts', v) for k, v in (('medium', 'Poppins-Medium.ttf'), ('bold', 'Poppins-Bold.ttf'), ('light', 'Poppins-Light.ttf'))}
+# zones reservees : le motif d'anneaux s'interrompt autour des inscriptions qu'il croise
+FONT_FILES = {'sans': os.path.join(ROOT, 'assets', 'fonts', 'LiberationSans-Bold.ttf'),
+              'mono': os.path.join(ROOT, 'assets', 'fonts', 'LiberationMono-Bold.ttf')}
 def text_box(t, mx=6.0, my=4.0):
     s_, font, em, track, x, y, rot = t
-    fnt = ImageFont.truetype(_FF[font], 200)
+    fnt = ImageFont.truetype(FONT_FILES[font], 200)
     w = (sum(fnt.getlength(ch) for ch in s_) / 200.0) * em + track * (len(s_) - 1)
-    h = em * 0.74
+    h = em * 0.72
     return (x - w / 2 - mx, y - h / 2 - my, w + 2 * mx, h + 2 * my)
-GAPS = [text_box(t) for t in VTEXT if t[0] in ('TAP', 'BYPASS', 'ECHO')]
-GAPS.append(text_box(('X2', 'bold', 34.0, 2.0, X2[0], X2[1], 0.0), mx=36.0, my=6.0))
+GAPS = [text_box(t) for t in VTEXT if t[0] in ('TAP', 'BYPASS')]
+GAPS.append((X2[0] - X2_HALF - 36.0, X2[1] - 15.25 * X2K - 7.0, 2 * X2_HALF + 72.0, 30.5 * X2K + 14.0))
+GAPS.append((TITLE_EXT[0] - 6, TITLE_EXT[1] + TITLE_EXT[3] * 0.5, TITLE_EXT[2] + 12, TITLE_EXT[3] * 0.5 + 7))
 for t in VTRI:
     xs, ys = t[0::2], t[1::2]
     GAPS.append((min(xs) - 7, min(ys) - 7, max(xs) - min(xs) + 14, max(ys) - min(ys) + 14))
@@ -351,55 +449,69 @@ GAPS.append((LOGO_C[0] - LOGO_W / 2 - 8, LOGO_C[1] - _lh / 2 - 6, LOGO_W + 16, _
 MOTIF_LEFT, MOTIF_RIGHT = (875.428571, 2048.0), (3220.571429, 2048.0)
 MOTIF_K = (FS_B[0] - FS_T[0]) / (MOTIF_RIGHT[0] - MOTIF_LEFT[0])
 
-# ------------------------------------------------------------------ 11. Layout.h + layout.json (repere du plugin 617,5 x 900)
+# ------------------------------------------------------------------ 13. Layout.h + layout.json (repere du plugin 617,5 x 900)
 def f(v): return f"{v:.2f}f"
 def X(v): return (v - CROP_X0) * SC
 def Y(v): return (v - PY0) * SC
 def PT(p): return "{ %s, %s }" % (f(X(p[0])), f(Y(p[1])))
 def RC(r): return "{ %s, %s, %s, %s }" % (f(X(r[0])), f(Y(r[1])), f(r[2] * SC), f(r[3] * SC))
-fk = {'medium': 0, 'bold': 1, 'light': 2}
+fk = {'sans': 0, 'mono': 1}
+SLOT_POS = [(PX0 + (PIPE_A[0] + PIPE_B[0]) / 2, y + (PIPE_A[1] + PIPE_B[1]) / 2) for y in SLOTS]
 lay = {"frame": [OUT_W / 2, OUT_H / 2], "knobs": [[X(k[2]), Y(k[3]), KNOB_R * SC] for k in KNOBS],
-       "slots": [[X(SLOT_X), Y(y)] for y in SLOTS], "sync": [X(SYNC[0]), Y(SYNC[1])],
+       "slots": [[X(p[0]), Y(p[1])] for p in SLOT_POS], "sync": [X(SYNC[0]), Y(SYNC[1])],
        "ledTempo": [X(LED_T[0]), Y(LED_T[1])], "ledCheck": [X(LED_C[0]), Y(LED_C[1])],
        "fsTap": [X(FS_T[0]), Y(FS_T[1])], "fsBypass": [X(FS_B[0]), Y(FS_B[1])], "x2": [X(X2[0]), Y(X2[1])],
        "status": [X(STATUS[0]), Y(STATUS[1]), STATUS[2] * SC, STATUS[3] * SC], "jackYs": [Y(v) for v in JACK_YS],
        "jackL": X(PX0 - JACK_PROT / 2), "jackR": X(PX0 + PW + JACK_PROT / 2),
-       "box": [X(PX0), Y(PY0), PW * SC, PH * SC]}
+       "box": [X(PX0), Y(PY0), PW * SC, PH * SC], "title": [X(TITLE_EXT[0]), Y(TITLE_EXT[1]), TITLE_EXT[2] * SC, TITLE_EXT[3] * SC]}
 json.dump(lay, open(os.path.join(ROOT, 'tools', 'layout.json'), 'w'), indent=1)
+def strokes_c(name, strokes, w):
+    pts, lens = [], []
+    for s in strokes:
+        lens.append(len(s)); pts += [f(X(p[0])) + ", " + f(Y(p[1])) for p in s]
+    return (f"    const float {name}Pts[] = {{ " + ", ".join(pts) + " };\n"
+            f"    const int {name}Lens[] = {{ " + ", ".join(str(n) for n in lens) + " };\n"
+            f"    const float {name}Stroke = {f(w * SC)};\n")
 with open(os.path.join(ROOT, 'Layout.h'), 'w') as fo:
     fo.write(f"// genere par tools/make_art.py - ne pas modifier a la main (repere {OUT_W / 2} x {OUT_H / 2} = fond {OUT_W} x {OUT_H} px / 2)\n#pragma once\n#include <juce_graphics/juce_graphics.h>\nnamespace layout\n{{\n")
     fo.write(f"    constexpr float frameW = {f(OUT_W / 2)}, frameH = {f(OUT_H / 2)};   // pedale plein cadre (jacks aux bords gauche / droit)\n")
     fo.write("    // ordre : elevel, mix, feedback, time, mode\n")
     fo.write("    const juce::Point<float> knobPos[5] = { " + ", ".join(PT(k[2:]) for k in KNOBS) + " };\n")
     fo.write(f"    const float knobR = {f(KNOB_R * SC)}, modeLabelR = {f(MODE_LABEL_R * SC)}, modeFont = {f(12.5 * SC)};\n")
-    fo.write("    const juce::Point<float> slotPos[7] = { " + ", ".join(PT((SLOT_X, y)) for y in SLOTS) + " };\n")
-    fo.write(f"    const float slotS = {f(LEDS['led_slot'][1] * SC)};\n")
+    fo.write("    // tubes de lumiere des memoires 1-7 : centre (zone de clic), coin du sprite allume, calques de lumiere\n")
+    fo.write("    const juce::Point<float> slotPos[7] = { " + ", ".join(PT(p) for p in SLOT_POS) + " };\n")
+    fo.write("    const juce::Point<float> pipeOrigin[7] = { " + ", ".join(PT(p) for p in PIPE_ON) + " };\n")
+    fo.write(f"    const float pipeW = {f(PIPE_BOX[2] * SC)}, pipeH = {f(PIPE_BOX[3] * SC)};\n")
+    fo.write("    const juce::Rectangle<float> glowSlot[7] = { " + ", ".join(RC(GL['slot%d' % i]) for i in range(7)) + " };\n")
     fo.write(f"    const juce::Point<float> ledTempo {PT(LED_T)}, ledCheck {PT(LED_C)}; const float ledS = {f(LEDS['led_ice'][1] * SC)};\n")
-    fo.write(f"    const juce::Point<float> syncPos {PT(SYNC)}; const float syncR = {f(SYNC_BEZ * SC)}, syncS = {f(SY_S * SC)};\n")
+    fo.write(f"    const juce::Point<float> syncPos {PT(SYNC)}; const float syncR = {f(SYNC_R * SC)}, syncS = {f(SY_S * SC)};\n")
     fo.write(f"    const juce::Point<float> fsTap {PT(FS_T)}, fsBypass {PT(FS_B)}; const float footR = {f(FS_BTN * SC)}, fsS = {f(FS_W * SC)};\n")
     fo.write(f"    const juce::Point<float> x2Pos {PT(X2)};\n")
     fo.write(f"    const juce::Point<float> triUp {PT(TRI_UP)}, triDown {PT(TRI_DN)};\n")
-    for k, r in GL.items():
-        fo.write(f"    const juce::Rectangle<float> glow_{k} {RC(r)};\n")
-    fo.write(f"    const juce::Rectangle<float> statusRect {RC(STATUS)}; const float statusFont = {f(19.0 * SC)};\n")
+    for k in ('tempo', 'check_red', 'check_green', 'check_orange', 'sync'):
+        fo.write(f"    const juce::Rectangle<float> glow_{k} {RC(GL[k])};\n")
+    fo.write(f"    const juce::Rectangle<float> statusRect {RC(STATUS)}; const float statusFont = {f(17.5 * SC)};\n")
     fo.write(f"    const juce::Rectangle<float> boxRect {RC((PX0, PY0, PW, PH))};   // boitier\n")
-    fo.write("    // serigraphie vectorielle : texte, police (0 medium, 1 bold, 2 light), taille em, espacement, centre, rotation (degres)\n")
+    fo.write("    // serigraphie vectorielle : texte, police (0 Liberation Sans Bold, 1 Liberation Mono Bold), taille em, espacement, centre, rotation (degres)\n")
     fo.write("    struct Txt { const char* s; int font; float em, track, x, y, rot; };\n")
     fo.write("    const Txt texts[] = {\n" + ",\n".join(f'        {{ "{t[0]}", {fk[t[1]]}, {f(t[2] * SC)}, {f(t[3] * SC)}, {f(X(t[4]))}, {f(Y(t[5]))}, {f(t[6])} }}' for t in VTEXT) + "\n    };\n")
     fo.write("    struct Dot { float x, y, r; };\n")
     fo.write("    const Dot dots[] = { " + ", ".join(f"{{ {f(X(d[0]))}, {f(Y(d[1]))}, {f(d[2] * SC)} }}" for d in VDOTS) + " };\n")
-    fo.write("    struct Line { float x0, y0, x1, y1, w; };\n")
+    fo.write("    struct Line { float x0, y0, x1, y1, w; };   // les 2 derniers : traits de X2 (allumes avec X2)\n")
     fo.write("    const Line lines[] = { " + ", ".join(f"{{ {f(X(l[0]))}, {f(Y(l[1]))}, {f(X(l[2]))}, {f(Y(l[3]))}, {f(l[4] * SC)} }}" for l in VLINES) + " };\n")
     fo.write("    struct Tri { float x0, y0, x1, y1, x2, y2; };\n")
     fo.write("    const Tri tris[] = { " + ", ".join("{ " + ", ".join(f(X(t[i])) if i % 2 == 0 else f(Y(t[i])) for i in range(6)) + " }" for t in VTRI) + " };\n")
     fo.write(f"    const float triStroke = {f(1.8 * SC)};\n")
+    fo.write("    // lettrage d'origine (traits, extremites droites) : titre EIGHT ECHO et X2\n")
+    fo.write(strokes_c('title', TITLE_STROKES, TITLE_W))
+    fo.write(strokes_c('x2', X2_STROKES, X2_W))
     fo.write(f"    // motif d'anneaux (eight_echo_motif.svg, repere 4096) : point gauche du SVG -> footswitch TAP, echelle\n")
     fo.write(f"    const juce::Point<float> motifSvgLeft {{ {MOTIF_LEFT[0]:.3f}f, {MOTIF_LEFT[1]:.3f}f }}; const float motifScale = {MOTIF_K * SC:.6f}f;\n")
     fo.write(f"    const juce::Point<float> logoPos {PT(LOGO_C)}; const float logoW = {f(LOGO_W * SC)};\n")
     fo.write("    const juce::Rectangle<float> motifGaps[] = { " + ", ".join(RC(r) for r in GAPS) + " };\n")
     fo.write("}\n")
 
-# ------------------------------------------------------------------ 12. donnees d'apercu (lues par tools/preview.py)
+# ------------------------------------------------------------------ 14. donnees d'apercu (lues par tools/preview.py)
 json.dump({"texts": [[t[0], t[1], t[2] * SC, t[3] * SC, X(t[4]), Y(t[5]), t[6]] for t in VTEXT],
            "dots": [[X(d[0]), Y(d[1]), d[2] * SC] for d in VDOTS],
            "lines": [[X(l[0]), Y(l[1]), X(l[2]), Y(l[3]), l[4] * SC] for l in VLINES],
@@ -407,7 +519,11 @@ json.dump({"texts": [[t[0], t[1], t[2] * SC, t[3] * SC, X(t[4]), Y(t[5]), t[6]] 
            "triStroke": 1.8 * SC, "motifLeft": MOTIF_LEFT, "motifScale": MOTIF_K * SC, "fsTap": [X(FS_T[0]), Y(FS_T[1])],
            "logo": [X(LOGO_C[0]), Y(LOGO_C[1]), LOGO_W * SC], "modeNames": MODE_NAMES, "modeLabelR": MODE_LABEL_R * SC,
            "modeFont": 12.5 * SC, "glows": {k: [X(r[0]), Y(r[1]), r[2] * SC, r[3] * SC] for k, r in GL.items()},
-           "sprites": {"fs": FS_W * SC, "led": LEDS['led_ice'][1] * SC, "slot": LEDS['led_slot'][1] * SC, "sync": SY_S * SC},
-           "knobR": KNOB_R * SC, "gaps": [[X(r[0]), Y(r[1]), r[2] * SC, r[3] * SC] for r in GAPS], "statusRect": [X(STATUS[0]), Y(STATUS[1]), STATUS[2] * SC, STATUS[3] * SC]},
+           "sprites": {"fs": FS_W * SC, "led": LEDS['led_ice'][1] * SC, "sync": SY_S * SC},
+           "pipe": [[X(p[0]), Y(p[1])] for p in PIPE_ON], "pipeSize": [PIPE_BOX[2] * SC, PIPE_BOX[3] * SC],
+           "title": [[[X(p[0]), Y(p[1])] for p in s] for s in TITLE_STROKES], "titleW": TITLE_W * SC,
+           "x2": [[[X(p[0]), Y(p[1])] for p in s] for s in X2_STROKES], "x2W": X2_W * SC,
+           "knobR": KNOB_R * SC, "gaps": [[X(r[0]), Y(r[1]), r[2] * SC, r[3] * SC] for r in GAPS],
+           "statusRect": [X(STATUS[0]), Y(STATUS[1]), STATUS[2] * SC, STATUS[3] * SC]},
           open(os.path.join(ROOT, 'tools', 'print.json'), 'w'), indent=0)
 print('ok')
