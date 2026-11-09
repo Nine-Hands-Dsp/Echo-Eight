@@ -33,7 +33,7 @@ def paste_rect(fn, r, op=1.0):
 # lumiere des LED sur la facade (sous la serigraphie)
 G = pj['glows']
 paste_rect('glow_tempo.png', G['tempo']); paste_rect('glow_check_red.png', G['check_red'])
-paste_rect('glow_slot1.png', G['slot0']); paste_rect('glow_sync.png', G['sync'])
+paste_rect('glow_slot1.png', G['slot0']); paste_rect('glow_sync.png', G['sync']); paste_rect('glow_x2.png', G['x2'])
 
 # ------------------------------------------------------------------ serigraphie vectorielle
 K = S * SS
@@ -196,10 +196,16 @@ for (k, v) in zip(lay['knobs'], [0.5, 0.5, 0.4, 0.62, None]):
     bd.line((p0[0] * S, p0[1] * S, p1[0] * S, p1[1] * S), fill=(236, 240, 243, 255), width=int(0.062 * R * S))
     canvas.alpha_composite(big)
 
-# ligne d'etat
+# ligne d'etat : zone sombre arrondie (comme Screamer), visible seulement quand un reglage change
 st = pj['statusRect']
-fsx = ImageFont.truetype(os.path.join(ROOT, 'assets', 'fonts', FONTS['mono']), int(17.5 * 2 * 1.01))
-d2.text(((st[0] + st[2] / 2) * S, (st[1] + st[3] / 2) * S), 'P1  STANDARD  500 MS', font=fsx, fill=SILK + (230,), anchor='mm')
+pan = Image.new('RGBA', canvas.size, (0, 0, 0, 0)); pd = ImageDraw.Draw(pan)
+r_ = (st[0] * S, st[1] * S, (st[0] + st[2]) * S, (st[1] + st[3]) * S)
+pd.rounded_rectangle(r_, radius=10 * S, fill=(9, 14, 19, int(0.90 * 255)))
+pd.rounded_rectangle((r_[0] + 1.5, r_[1] + 1.5, r_[2] - 1.5, r_[3] - 1.5), radius=10 * S - 1.5, outline=(150, 210, 255, int(0.45 * 255)), width=3)
+canvas.alpha_composite(pan)
+d2 = ImageDraw.Draw(canvas)
+fsx = ImageFont.truetype(os.path.join(ROOT, 'assets', 'fonts', FONTS['sans']), int(21 * 2 * 1.01))
+d2.text(((st[0] + st[2] / 2) * S, (st[1] + st[3] / 2) * S), 'E.LEVEL  64 %', font=fsx, fill=SILK + (255,), anchor='mm')
 
 os.makedirs(os.path.join(ROOT, 'design'), exist_ok=True)
 canvas.save(os.path.join(ROOT, 'design', 'preview.png'))

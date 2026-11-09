@@ -195,27 +195,30 @@ def led_sprites(R_units, AS, pad=1.25, colour='ice'):
     return out[0], out[1], S_
 
 
-# ------------------------------------------------------------------ grosse LED du bouton SYNC (photo fournie par l'utilisateur, nov. 2026)
-# assets/kit/sync_led_photo.png : dome de LED transparent vu de dessus (150 x 150, centre 74,5 / 74,5, rayon 46,6 px).
-# Eteinte : la photo telle quelle (avec ombre portee) ; allumee : la meme lumiere bleu glace qui monte de l'interieur.
-BIG_C, BIG_RPX = (74.5, 74.5), 46.6
+# ------------------------------------------------------------------ bouton lumineux SYNC (photo fournie par l'utilisateur, nov. 2026)
+# assets/kit/sync_led_photo.png : bouton rond, bague en metal bleu nuit brosse + capuchon depoli bleu gris
+# (800 x 800, centre 396,3 / 407,0, rayon exterieur 336,5 px, capuchon jusqu'a ~0,87 du rayon).
+# Eteint : la photo telle quelle (avec ombre portee) ; allume : le capuchon s'eclaire en bleu glace de l'interieur.
+BIG_C, BIG_RPX, BIG_CAP = (396.3, 407.0), 336.5, 0.865
 
-def big_led_sprites(R_units, AS, pad=1.6):
+def big_led_sprites(R_units, AS, pad=1.45):
     im = _load('sync_led_photo.png')
     h, w = im.shape[:2]
     yy, xx = np.mgrid[0:h, 0:w].astype(np.float32)
     r = np.hypot(xx - BIG_C[0], yy - BIG_C[1]) / BIG_RPX
-    a = np.clip((1.0 - r) * BIG_RPX * 1.2, 0, 1)                    # bord net (la photo a un fond blanc)
+    a = np.clip((1.0 - r) * BIG_RPX * 0.5, 0, 1) * (im[..., 3] / 255.0)
     rgb = im[..., :3].copy()
     off = np.dstack([rgb, a * 255])
     lum = rgb.mean(2) / 255.0
-    core = np.exp(-(((xx - BIG_C[0]) / (0.55 * BIG_RPX)) ** 2 + ((yy - BIG_C[1] - 0.05 * BIG_RPX) / (0.55 * BIG_RPX)) ** 2))
-    ice = np.array([120.0, 200.0, 255.0])
-    lit = ice * (0.55 + 0.45 * lum)[..., None] + np.array([135.0, 55.0, 0.0]) * core[..., None] + (lum ** 3 * 60)[..., None]
-    on = np.dstack([np.clip(lit, 0, 255), a * 255])
+    cap = np.clip((BIG_CAP - r) * BIG_RPX * 0.25, 0, 1)
+    core = np.exp(-(r / 0.62) ** 2)
+    ice = np.array([125.0, 200.0, 255.0])
+    lit_cap = ice * (0.70 + 0.30 * lum / max(1e-3, lum.max()))[..., None] + np.array([125.0, 52.0, 0.0]) * core[..., None]
+    lit = rgb * (1 - cap[..., None]) + np.clip(lit_cap, 0, 255) * cap[..., None]
+    on = np.dstack([lit, a * cap * 255])          # calque allume : seulement le capuchon
     S_ = 2 * R_units * pad
     n = int(round(S_ * AS)); k = R_units * AS / BIG_RPX
     rgb_o, a_o = _place(off, BIG_C, k, n)
-    spr_off = _with_shadow(rgb_o, a_o, 2 * R_units * AS, 0.55)
+    spr_off = _with_shadow(rgb_o, a_o, 2 * R_units * AS, 0.6)
     rgb_n, a_n = _place(on, BIG_C, k, n)
     return spr_off, np.dstack([rgb_n, a_n * 255]).astype(np.float32), S_

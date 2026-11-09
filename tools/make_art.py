@@ -66,7 +66,7 @@ SLOTS = [P(0, y)[1] for y in (94, 145, 197, 248, 300, 352, 403)]      # remontee
 SLOT_NUM_X = PX0 + 70.0 * KXo                 # numeros decales avec les tubes allonges
 FS_T, FS_B = (KL - 0.0, P(0, 775)[1]), (KRX, P(0, 775)[1])
 FS_T = (CX - (438.0 - 143.0) / 2 * KXo, FS_T[1]); FS_B = (CX + (438.0 - 143.0) / 2 * KXo, FS_B[1])   # footswitches symetriques
-SYNC = (KL, P(0, 491.5)[1]); SYNC_R = 25.0     # grosse LED du bouton SYNC (rayon du dome)
+SYNC = (KL, P(0, 491.5)[1]); SYNC_R = 29.0     # bouton lumineux SYNC (rayon exterieur de la bague)
 LED_LENS = 11.0
 LED_T = (FS_T[0], P(0, 621.0)[1]); LED_C = (FS_B[0], P(0, 621.0)[1])          # LED alignees sur les footswitches
 TITLE_C = (CX, P(0, 637.5)[1])
@@ -76,7 +76,7 @@ X2 = (CX, FS_T[1] + 2.0)
 FS_LABEL_Y = P(0, 860)[1]
 LOGO_C = (CX, P(0, 861)[1]); LOGO_W = 186.0
 JACK_YS = [P(0, 480)[1], P(0, 622)[1]]           # A, B
-STATUS = (CX - 210.0 * KXo, P(0, 42)[1], 420.0 * KXo, 30.0)
+STATUS = (CX - 150.0 * KXo, P(0, 30)[1], 300.0 * KXo, 40.0)   # zone de la ligne d'etat (cadre sombre, comme Screamer)
 # tubes de lumiere des memoires (comme la pedale d'origine) : sortent de la tranche gauche en montant vers la droite
 # mesures sur la pedale d'origine (ecartement des memoires = 52,3 px d'origine) : tube plat (incruste, sans relief),
 # du bord interieur de l'arete (8 px) jusqu'au bout arrondi (42 px), monte a ~24 degres, 11 px d'epaisseur,
@@ -294,7 +294,7 @@ save_sprite(FSREFL.astype(np.float32), 'fs_refl.png', FS_W)
 for k, (on, S_) in LEDS.items(): save_sprite(on, k + '.png', S_)
 save_sprite(SY_ON, 'sync_on.png', SY_S)
 save_sprite(PIPES[0][2], 'pipe_on.png', PIPE_BOX[2], PIPE_BOX[3])
-for f_ in ('led_slot.png', 'glow_x2.png'):
+for f_ in ('led_slot.png',):
     if os.path.exists(os.path.join(ROOT, f_)): os.remove(os.path.join(ROOT, f_))
 
 # ------------------------------------------------------------------ 10. facade eclairee par les lumieres (calques alpha : seule la lumiere ajoutee)
@@ -395,9 +395,31 @@ TITLE_OLD_C = ((208.0 + 371.5) / 2, (603.0 + 672.0) / 2)
 TK = KY                                           # meme echelle en x et y (lettrage non deforme)
 def tmap(p, c_old, c_new, k=TK): return (c_new[0] + (p[0] - c_old[0]) * k, c_new[1] + (p[1] - c_old[1]) * k)
 TITLE_STROKES = [[tmap(p, TITLE_OLD_C, TITLE_C) for p in s] for s in tstrokes]
-X2K = TK * 0.80                                   # X2 un peu plus petit que le titre
+X2K = TK * 1.12                                   # X2 agrandi (nov. 2026)
 X2_STROKES = [[tmap(p, (34.5, 15.25), X2, X2K) for p in s] for s in x2strokes]
 TITLE_W, X2_W = LW * TK, LW * X2K
+# facade eclairee par X2 allume : source = traits du X2 (masque flou), calque alpha comme les LED
+def x2_glow():
+    GRx, GRy = 95.0, 45.0
+    box = (X2[0] - GRx, X2[1] - GRy, 2 * GRx, 2 * GRy)
+    nw, nh = int(box[2] * AS), int(box[3] * AS)
+    m = np.zeros((nh, nw), np.uint8)
+    for st in X2_STROKES + [[(X2[0] - X2_HALF - 9.0, X2[1]), (X2[0] - X2_HALF - 29.0, X2[1])], [(X2[0] + X2_HALF + 9.0, X2[1]), (X2[0] + X2_HALF + 29.0, X2[1])]]:
+        pts = np.array([[(p[0] - box[0]) * AS * 4, (p[1] - box[1]) * AS * 4] for p in st], np.int32)
+        cv2.polylines(m, [pts], False, 255, thickness=int(X2_W * AS), lineType=cv2.LINE_AA, shift=2)
+    mk = m.astype(np.float64) / 255.0
+    E = cv2.GaussianBlur(mk, (0, 0), 4.0 * AS) * 1.1 + cv2.GaussianBlur(mk, (0, 0), 14.0 * AS) * 0.9
+    x0p, y0p = int(round(box[0] * AS)), int(round(box[1] * AS))
+    reg = img[y0p:y0p + nh, x0p:x0p + nw].astype(np.float64)
+    yy, xx = np.mgrid[0:nh, 0:nw].astype(np.float64)
+    fade = np.minimum(np.clip(np.minimum(xx, nw - xx) / (0.25 * nw), 0, 1), np.clip(np.minimum(yy, nh - yy) / (0.3 * nh), 0, 1))
+    E *= fade
+    col = np.array(ICE); lum = reg.mean(2, keepdims=True)
+    add = (reg * 2.0 + 14.0 * np.clip(lum / 60.0, 0.3, 1.6)) * E[..., None] * col
+    a = np.clip(np.abs(add).max(-1) / 12.0, 0, 1)
+    rgb = np.where(a[..., None] > 1e-3, reg + add / np.maximum(a, 1e-3)[..., None], reg)
+    save_sprite(np.dstack([np.clip(rgb, 0, 255), a * 255]).astype(np.float32), 'glow_x2.png', box[2], box[3])
+    return box
 TITLE_EXT = (TITLE_C[0] - (371.5 - 208.0) / 2 * TK, TITLE_C[1] - 34.5 * TK, (371.5 - 208.0) * TK, 69.0 * TK)
 
 # ------------------------------------------------------------------ 12. serigraphie vectorielle (dessinee par le plugin) : textes, points, traits
@@ -426,6 +448,7 @@ for nm, jy in zip(('A', 'B'), JACK_YS):
     T('OUT ' + nm, 'sans', 14.5, 0.8, PX0 + 21.0, jy, 90.0)
     T('IN ' + nm, 'sans', 14.5, 0.8, PX0 + PW - 21.0, jy, 90.0)
 X2_HALF = 34.0 * X2K
+GL['x2'] = x2_glow()
 for sgn in (-1, 1):                                       # traits de part et d'autre de X2 (s'allument avec X2)
     VLINES.append((X2[0] + sgn * (X2_HALF + 9.0), X2[1], X2[0] + sgn * (X2_HALF + 29.0), X2[1], 2.6))
 def tri(c, up, s=12.0):
@@ -492,9 +515,9 @@ with open(os.path.join(ROOT, 'Layout.h'), 'w') as fo:
     fo.write(f"    const juce::Point<float> fsTap {PT(FS_T)}, fsBypass {PT(FS_B)}; const float footR = {f(FS_BTN * SC)}, fsS = {f(FS_W * SC)};\n")
     fo.write(f"    const juce::Point<float> x2Pos {PT(X2)};\n")
     fo.write(f"    const juce::Point<float> triUp {PT(TRI_UP)}, triDown {PT(TRI_DN)};\n")
-    for k in ('tempo', 'check_red', 'check_green', 'check_orange', 'sync'):
+    for k in ('tempo', 'check_red', 'check_green', 'check_orange', 'sync', 'x2'):
         fo.write(f"    const juce::Rectangle<float> glow_{k} {RC(GL[k])};\n")
-    fo.write(f"    const juce::Rectangle<float> statusRect {RC(STATUS)}; const float statusFont = {f(17.5 * SC)};\n")
+    fo.write(f"    const juce::Rectangle<float> statusRect {RC(STATUS)}; const float statusFont = {f(21.0 * SC)};\n")
     fo.write(f"    const juce::Rectangle<float> boxRect {RC((PX0, PY0, PW, PH))};   // boitier\n")
     fo.write("    // serigraphie vectorielle : texte, police (0 Liberation Sans Bold, 1 Liberation Mono Bold), taille em, espacement, centre, rotation (degres)\n")
     fo.write("    struct Txt { const char* s; int font; float em, track, x, y, rot; };\n")
