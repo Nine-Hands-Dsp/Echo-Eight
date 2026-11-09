@@ -8,7 +8,7 @@ namespace layout
     const juce::Point<float> knobPos[5] = { { 203.31f, 135.83f }, { 414.19f, 135.83f }, { 203.31f, 303.80f }, { 414.19f, 303.80f }, { 414.19f, 496.66f } };
     const float knobR = 52.58f, modeLabelR = 67.75f, modeFont = 12.64f;
     // tubes de lumiere des memoires 1-7 : centre (zone de clic), coin du sprite allume, calques de lumiere
-    const juce::Point<float> slotPos[7] = { { 42.47f, 109.91f }, { 42.47f, 162.79f }, { 42.47f, 217.74f }, { 42.47f, 270.62f }, { 42.47f, 324.54f }, { 42.47f, 378.46f }, { 42.47f, 432.37f } };
+    const juce::Point<float> slotPos[7] = { { 41.74f, 109.91f }, { 41.74f, 162.79f }, { 41.74f, 217.74f }, { 41.74f, 270.62f }, { 41.74f, 324.54f }, { 41.74f, 378.46f }, { 41.74f, 432.37f } };
     const juce::Point<float> pipeOrigin[7] = { { 10.62f, 83.62f }, { 10.62f, 136.50f }, { 10.62f, 191.45f }, { 10.62f, 244.33f }, { 10.62f, 298.25f }, { 10.62f, 352.16f }, { 10.62f, 406.08f } };
     const float pipeW = 74.83f, pipeH = 50.56f;
     const juce::Rectangle<float> glowSlot[7] = { { 14.66f, 69.46f, 101.12f, 76.85f }, { 14.66f, 122.34f, 101.12f, 76.85f }, { 14.66f, 177.29f, 101.12f, 76.85f }, { 14.66f, 230.17f, 101.12f, 76.85f }, { 14.66f, 284.09f, 101.12f, 76.85f }, { 14.66f, 338.01f, 101.12f, 76.85f }, { 14.66f, 391.92f, 101.12f, 76.85f } };
