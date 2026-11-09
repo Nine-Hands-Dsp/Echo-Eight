@@ -220,7 +220,14 @@ def pipe_layers(ys):
     sl = np.clip(d / (PIPE_R + OVER), 0, 1)
     core = np.clip(np.exp(-(sl / 0.80) ** 6) * (0.85 + 0.30 * t), 0, 1)
     lit = np.array([120.0, 190.0, 255.0]) * (1 - core[..., None]) + np.array([244.0, 250.0, 255.0]) * core[..., None]
-    on_rgba = np.dstack([np.clip(lit, 0, 255), cov_l * 255]).astype(np.float32)
+    # halo lumineux autour du tube allume (bleu glace, s'eteint en douceur)
+    halo = 0.75 * np.exp(-np.clip(d - PIPE_R, 0, None) / 6.0) * np.clip((px - (PX0 + PIPE_CUT - 2.0)) / 3.0, 0, 1)
+    halo *= np.clip(1.0 - np.maximum(np.abs(px - (x0u + PIPE_BOX[2] / 2)) / (PIPE_BOX[2] / 2), np.abs(py - (y0u + PIPE_BOX[3] / 2)) / (PIPE_BOX[3] / 2)), 0, 1) ** 0.5
+    a_on = np.clip(cov_l + halo * (1 - cov_l), 0, 1)
+    halo_col = np.array([140.0, 205.0, 255.0])
+    lit = np.where(cov_l[..., None] > 0, lit * cov_l[..., None] + halo_col * (1 - cov_l[..., None]), halo_col)
+    lit = np.where(a_on[..., None] > 1e-3, lit, 0)
+    on_rgba = np.dstack([np.clip(lit, 0, 255), a_on * 255]).astype(np.float32)
     return x0u, y0u, off_rgba, on_rgba
 PIPES = []
 for ys in SLOTS:
@@ -326,7 +333,7 @@ for i, ys in enumerate(SLOTS):
     A = (PX0 + PIPE_CUT + 1.0, ys + PIPE_A[1]); B = (PX0 + PIPE_B[0], ys + PIPE_B[1])
     src = [(A[0] + (B[0] - A[0]) * k, A[1] + (B[1] - A[1]) * k, 0.12 + 0.20 * k) for k in np.linspace(0, 1, 8)]
     keep = (lambda A_, B_: (lambda px, py: ((seg_dist(px, py, A_, B_)[0] > PIPE_R) | (px < PX0 + PIPE_CUT)).astype(np.float64)))((PX0 + PIPE_A[0], ys + PIPE_A[1]), B)
-    GL['slot%d' % i] = glow(src, (PX0 - 4.0, ys - 40.0, 100.0, 76.0), ICE, keep, 'glow_slot%d.png' % (i + 1), h1=4.0, h2=11.0, gain=1.1)
+    GL['slot%d' % i] = glow(src, (PX0 - 4.0, ys - 40.0, 100.0, 76.0), ICE, keep, 'glow_slot%d.png' % (i + 1), h1=5.5, h2=16.0, gain=2.6)
 GL['sync'] = glow([(SYNC[0], SYNC[1], 1.0)], sq(SYNC, 82.0), ICE, disc_out(SYNC, SYNC_R * 0.97), 'glow_sync.png', h1=10.0, h2=26.0, gain=0.6)
 PIPE_ON = [(x0u, y0u) for (x0u, y0u, _) in PIPES]
 
