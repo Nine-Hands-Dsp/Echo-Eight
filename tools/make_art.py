@@ -62,7 +62,7 @@ KL, KRX = CX - KD, CX + KD
 KNOBS = [('elevel', 'E.LEVEL', KL, P(0, 149)[1]), ('mix', 'MIX', KRX, P(0, 149)[1]),
          ('feedback', 'FEEDBACK', KL, P(0, 311)[1]), ('time', 'TIME', KRX, P(0, 311)[1]), ('mode', 'MODE', KRX, P(0, 497)[1])]
 LABEL_DY = 80.0                                  # etiquette sous le potard
-SLOTS = [P(0, y)[1] for y in (124, 175, 228, 279, 331, 383, 435)]
+SLOTS = [P(0, y)[1] for y in (94, 145, 197, 248, 300, 352, 403)]      # remontees, loin de OUT A (nov. 2026)
 SLOT_NUM_X = PX0 + 70.0 * KXo                 # numeros decales avec les tubes allonges
 FS_T, FS_B = (KL - 0.0, P(0, 775)[1]), (KRX, P(0, 775)[1])
 FS_T = (CX - (438.0 - 143.0) / 2 * KXo, FS_T[1]); FS_B = (CX + (438.0 - 143.0) / 2 * KXo, FS_B[1])   # footswitches symetriques
@@ -214,9 +214,13 @@ def pipe_layers(ys):
     offc = offc + (lip * 45.0)[..., None] * np.array([1.0, 1.02, 1.04])
     off_rgba = np.dstack([np.clip(offc, 0, 255), cov * 255]).astype(np.float32)
     # allume (comme l'original) : tube blanc lumineux, bord bleu glace, toujours plat
-    core = np.clip(np.exp(-(s / 0.82) ** 6) * (0.80 + 0.35 * t), 0, 1)
-    lit = np.array([110.0, 182.0, 255.0]) * (1 - core[..., None]) + np.array([242.0, 249.0, 255.0]) * core[..., None]
-    on_rgba = np.dstack([np.clip(lit, 0, 255), cov * 255]).astype(np.float32)
+    # la lumiere deborde un peu du logement : forme allumee 1,6 unite plus large, bord adouci
+    OVER = 1.6
+    cov_l = np.clip((PIPE_R + OVER - d) / 1.2, 0, 1) * np.clip((px - (PX0 + PIPE_CUT)) * AS, 0, 1)
+    sl = np.clip(d / (PIPE_R + OVER), 0, 1)
+    core = np.clip(np.exp(-(sl / 0.80) ** 6) * (0.85 + 0.30 * t), 0, 1)
+    lit = np.array([120.0, 190.0, 255.0]) * (1 - core[..., None]) + np.array([244.0, 250.0, 255.0]) * core[..., None]
+    on_rgba = np.dstack([np.clip(lit, 0, 255), cov_l * 255]).astype(np.float32)
     return x0u, y0u, off_rgba, on_rgba
 PIPES = []
 for ys in SLOTS:
