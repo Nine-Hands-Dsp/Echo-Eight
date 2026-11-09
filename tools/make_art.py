@@ -78,9 +78,12 @@ LOGO_C = (CX, P(0, 861)[1]); LOGO_W = 186.0
 JACK_YS = [P(0, 480)[1], P(0, 622)[1]]           # A, B
 STATUS = (CX - 210.0 * KXo, P(0, 42)[1], 420.0 * KXo, 30.0)
 # tubes de lumiere des memoires (comme la pedale d'origine) : sortent de la tranche gauche en montant vers la droite
-PIPE_A = (-3.0, 9.0)                            # extremite dans la tranche (relatif : x depuis PX0, y depuis la memoire)
-PIPE_B = (40.0, -8.0)                           # bout arrondi
-PIPE_R = 5.6
+# mesures sur la pedale d'origine : le tube part du bord interieur de l'arete (coupe droite), monte a ~24 degres,
+# bout arrondi ; acrylique depoli clair presque opaque (168, 177, 184 sur une plaque 88, 104, 116)
+PIPE_A = (9.0, 10.8)                            # depart (relatif : x depuis PX0, y depuis la memoire)
+PIPE_B = (44.3, -4.3)                           # bout arrondi
+PIPE_R = 5.4
+PIPE_CUT = 10.2                                 # coupe droite cote arete
 
 # ------------------------------------------------------------------ outils
 YY, XX = np.mgrid[0:H, 0:W].astype(np.float32)
@@ -197,28 +200,31 @@ def pipe_layers(ys):
     d, t = seg_dist(px, py, A, B)
     cov = np.clip((PIPE_R - d) * AS, 0, 1)
     # tranche gauche : le tube sort du boitier (coupe sur l'arete, comme sur la pedale d'origine)
-    cov *= np.clip((px - (PX0 + 0.6)) * AS, 0, 1)
+    cov *= np.clip((px - (PX0 + PIPE_CUT)) * AS, 0, 1)
     # cylindre couche : normale dans la largeur du tube
     ux, uy = (B[0] - A[0]), (B[1] - A[1]); ln = math.hypot(ux, uy); ux, uy = ux / ln, uy / ln
     nx_, ny_ = -uy, ux                                           # perpendiculaire (vers le haut a gauche)
     sgn = np.sign((px - A[0]) * nx_ + (py - A[1]) * ny_)
     s = np.clip(d / PIPE_R, 0, 1) * sgn                          # -1 .. 1 dans la largeur
     nz = np.sqrt(np.clip(1 - s * s, 0, 1))
-    nrm = np.dstack([s * nx_ * 0.9, s * ny_ * 0.9, nz]); nrm /= np.linalg.norm(nrm, axis=2, keepdims=True)
+    nrm = np.dstack([s * nx_ * 0.45, s * ny_ * 0.45, np.maximum(nz, 0.35)]); nrm /= np.linalg.norm(nrm, axis=2, keepdims=True)
     ndl = np.clip(nrm @ L, 0, 1); ndh = np.clip(nrm @ HV, 0, 1)
     plate = img[int(y0u * AS):int(y0u * AS) + n_h, int(x0u * AS):int(x0u * AS) + n_w]
-    frost = np.array([196.0, 208.0, 216.0])
-    # acrylique depoli translucide : on voit la plaque au travers, un peu plus clair, reflet doux sur le dessus
-    offc = plate * 0.62 + frost * (0.20 + 0.16 * ndl)[..., None] + (38 * ndh ** 8)[..., None]
-    edge = np.clip((np.abs(s) - 0.72) / 0.28, 0, 1)
-    offc = offc * (1 - 0.22 * edge[..., None])
+    frost = np.array([168.0, 177.0, 184.0])
+    # acrylique depoli clair, presque plat (comme la pedale d'origine) : un peu de plaque au travers,
+    # reflet doux sur le flanc du haut, liseré plus sombre sur le flanc du bas
+    offc = plate * 0.16 + frost * 0.84 * (0.90 + 0.16 * ndl)[..., None] + (16 * ndh ** 6)[..., None]
+    low = np.clip((-s - 0.55) / 0.45, 0, 1)
+    offc = offc * (1 - 0.16 * low[..., None])
+    grain_ = np.random.default_rng(int(ys * 7)).standard_normal(s.shape).astype(np.float32)
+    offc += cv2.GaussianBlur(grain_, (0, 0), 1.2)[..., None] * 3.0
     # bout du tube un peu plus clair (lumiere qui sort par l'extremite polie)
     offc += (12 * np.clip((t - 0.85) / 0.15, 0, 1))[..., None]
     off_rgba = np.dstack([np.clip(offc, 0, 255), cov * 255]).astype(np.float32)
-    # allume : bleu glace, coeur presque blanc au centre du tube et vers le bout
-    core = np.exp(-(s / 0.55) ** 2) * (0.55 + 0.45 * t)
-    lit = np.array([70.0, 175.0, 255.0]) * (0.75 + 0.25 * nz)[..., None] + np.array([185.0, 80.0, 0.0]) * core[..., None]
-    lit = np.minimum(lit + (60 * ndh ** 20)[..., None], 255)
+    # allume (comme l'original) : coeur blanc tres lumineux qui remplit le tube vers le bout, bord bleu glace
+    core = np.clip(np.exp(-(s / 0.78) ** 4) * (0.75 + 0.5 * t), 0, 1)
+    lit = np.array([95.0, 170.0, 255.0]) * (1 - core[..., None]) + np.array([238.0, 248.0, 255.0]) * core[..., None]
+    lit = np.minimum(lit + (30 * ndh ** 10)[..., None], 255)
     on_rgba = np.dstack([lit, cov * 255]).astype(np.float32)
     return x0u, y0u, off_rgba, on_rgba
 # ombre douce des tubes sur la plaque (vers le bas a droite)
@@ -326,10 +332,10 @@ GL['tempo'] = glow([(LED_T[0], LED_T[1], 1.0)], sq(LED_T, 100.0), ICE, disc_out(
 for nm, col in (('red', RED), ('green', GREEN), ('orange', ORANGE)):
     GL['check_' + nm] = glow([(LED_C[0], LED_C[1], 1.0)], sq(LED_C, 100.0), col, disc_out(LED_C, LED_LENS * 1.07), 'glow_check_' + nm + '.png')
 for i, ys in enumerate(SLOTS):
-    A = (PX0 + 2.0, ys + PIPE_A[1] - 1.5); B = (PX0 + PIPE_B[0], ys + PIPE_B[1])
-    src = [(A[0] + (B[0] - A[0]) * k, A[1] + (B[1] - A[1]) * k, 0.18 + 0.12 * k) for k in np.linspace(0, 1, 8)]
-    keep = (lambda A_, B_: (lambda px, py: (seg_dist(px, py, A_, B_)[0] > PIPE_R).astype(np.float64)))((PX0 + PIPE_A[0], ys + PIPE_A[1]), B)
-    GL['slot%d' % i] = glow(src, (PX0 - 4.0, ys - 40.0, 100.0, 76.0), ICE, keep, 'glow_slot%d.png' % (i + 1), h1=4.0, h2=14.0, gain=1.6)
+    A = (PX0 + PIPE_CUT + 1.0, ys + PIPE_A[1] - 0.5); B = (PX0 + PIPE_B[0], ys + PIPE_B[1])
+    src = [(A[0] + (B[0] - A[0]) * k, A[1] + (B[1] - A[1]) * k, 0.12 + 0.20 * k) for k in np.linspace(0, 1, 8)]
+    keep = (lambda A_, B_: (lambda px, py: ((seg_dist(px, py, A_, B_)[0] > PIPE_R) | (px < PX0 + PIPE_CUT)).astype(np.float64)))((PX0 + PIPE_A[0], ys + PIPE_A[1]), B)
+    GL['slot%d' % i] = glow(src, (PX0 - 4.0, ys - 40.0, 100.0, 76.0), ICE, keep, 'glow_slot%d.png' % (i + 1), h1=5.0, h2=16.0, gain=2.2)
 GL['sync'] = glow([(SYNC[0], SYNC[1], 1.0)], sq(SYNC, 82.0), ICE, disc_out(SYNC, SYNC_R * 0.97), 'glow_sync.png', h1=10.0, h2=26.0, gain=0.6)
 PIPE_ON = [(x0u, y0u) for (x0u, y0u, _) in PIPES]
 
@@ -415,7 +421,7 @@ for i in range(11):
     VLINES.append((mx + r0 * math.sin(a), my - r0 * math.cos(a), mx + r1 * math.sin(a), my - r1 * math.cos(a), 2.0))
 MODE_LABEL_R = KNOB_R + 15.0
 T('SYNC', 'sans', LABEL_EM, 0.6, SYNC[0], KNOBS[4][3] + LABEL_DY)
-for i, y in enumerate(SLOTS): T(str(i + 1), 'sans', 19.0, 0.0, SLOT_NUM_X, y - 14.0)
+for i, y in enumerate(SLOTS): T(str(i + 1), 'sans', 19.0, 0.0, SLOT_NUM_X, y - 12.0)
 T('TAP', 'sans', LABEL_EM, 0.6, FS_T[0], FS_LABEL_Y)
 T('BYPASS', 'sans', LABEL_EM, 0.6, FS_B[0], FS_LABEL_Y)
 for nm, jy in zip(('A', 'B'), JACK_YS):
