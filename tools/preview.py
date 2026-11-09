@@ -56,7 +56,7 @@ def text(s, font, em, track, x, y, rot, d=None, im=None):
 
 for t in pj['texts']: text(*t)
 # lettrage d'origine : titre (serigraphie) et X2 (allume)
-for strokes, wdt, dd in ((pj['title'], pj['titleW'], dr), (pj['x2'], pj['x2W'], drx)):
+for strokes, wdt, dd in ((pj['x2'], pj['x2W'], drx),):
     for s_ in strokes:
         dd.line([(p[0] * K, p[1] * K) for p in s_], fill=255, width=int(round(wdt * K)), joint='curve')
 for (x, y, r) in pj['dots']: dr.ellipse(((x - r) * K, (y - r) * K, (x + r) * K, (y + r) * K), fill=255)
@@ -163,6 +163,14 @@ for d, stroke, fill in lg:
     a = m.astype(np.float32) / 255.0
     logo = logo * (1 - a[..., None]) + col * a[..., None]; logo_a = np.maximum(logo_a, a)
 
+# logo EIGHT ECHO (SVG fourni) dans son cadre
+tt_src, tt = svg_paths(os.path.join(ROOT, 'assets', 'eight_echo_title.svg'))
+tr_, tb = pj['titleRect'], pj['titleSvgBounds']; tk_ = tr_[2] / tb[2]
+tmask = np.zeros((Hp * SS, Wp * SS), np.uint8)
+for d, _, _ in tt:
+    polys = [np.round(np.array([[(tr_[0] + (q[0] - tb[0]) * tk_) * K, (tr_[1] + (q[1] - tb[1]) * tk_) * K] for q in poly]) * 4).astype(np.int32) for poly in flatten(d) if len(poly) > 2]
+    m_ = np.zeros_like(tmask); cv2.fillPoly(m_, polys, 255, lineType=cv2.LINE_AA, shift=2); tmask = np.maximum(tmask, m_)
+ink = Image.fromarray(np.maximum(np.asarray(ink), tmask))
 def down(a): return cv2.resize(a, (Wp, Hp), interpolation=cv2.INTER_AREA)
 cv = np.asarray(canvas).astype(np.float32)
 def comp(col, a):

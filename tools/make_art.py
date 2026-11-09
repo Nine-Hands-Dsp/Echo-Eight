@@ -424,7 +424,11 @@ def x2_glow():
     rgb = np.where(a[..., None] > 1e-3, reg + add / np.maximum(a, 1e-3)[..., None], reg)
     save_sprite(np.dstack([np.clip(rgb, 0, 255), a * 255]).astype(np.float32), 'glow_x2.png', box[2], box[3])
     return box
-TITLE_EXT = (TITLE_C[0] - (371.5 - 208.0) / 2 * TK, TITLE_C[1] - 34.5 * TK, (371.5 - 208.0) * TK, 69.0 * TK)
+# titre : logo EIGHT ECHO vectoriel fourni (assets/eight_echo_title.svg, contenu x 614,4-2385,9 / y 125,1-875,0),
+# dessine par le plugin dans ce cadre (meme place et meme taille que le lettrage d'origine)
+TITLE_SVG_BOUNDS = (614.42, 125.13, 2385.85 - 614.42, 875.0 - 125.13)
+_th = 69.0 * TK; _tw = _th * TITLE_SVG_BOUNDS[2] / TITLE_SVG_BOUNDS[3]
+TITLE_EXT = (TITLE_C[0] - _tw / 2, TITLE_C[1] - _th / 2, _tw, _th)
 
 # ------------------------------------------------------------------ 12. serigraphie vectorielle (dessinee par le plugin) : textes, points, traits
 VTEXT, VDOTS, VLINES, VTRI = [], [], [], []
@@ -534,7 +538,7 @@ with open(os.path.join(ROOT, 'Layout.h'), 'w') as fo:
     fo.write("    const Tri tris[] = { " + ", ".join("{ " + ", ".join(f(X(t[i])) if i % 2 == 0 else f(Y(t[i])) for i in range(6)) + " }" for t in VTRI) + " };\n")
     fo.write(f"    const float triStroke = {f(1.8 * SC)};\n")
     fo.write("    // lettrage d'origine (traits, extremites droites) : titre EIGHT ECHO et X2\n")
-    fo.write(strokes_c('title', TITLE_STROKES, TITLE_W))
+    fo.write(f"    const juce::Rectangle<float> titleRect {RC(TITLE_EXT)};   // logo EIGHT ECHO (eight_echo_title.svg)\n")
     fo.write(strokes_c('x2', X2_STROKES, X2_W))
     fo.write(f"    // motif d'anneaux (eight_echo_motif.svg, repere 4096) : point gauche du SVG -> footswitch TAP, echelle\n")
     fo.write(f"    const juce::Point<float> motifSvgLeft {{ {MOTIF_LEFT[0]:.3f}f, {MOTIF_LEFT[1]:.3f}f }}; const float motifScale = {MOTIF_K * SC:.6f}f;\n")
@@ -552,7 +556,7 @@ json.dump({"texts": [[t[0], t[1], t[2] * SC, t[3] * SC, X(t[4]), Y(t[5]), t[6]] 
            "modeFont": 12.5 * SC, "glows": {k: [X(r[0]), Y(r[1]), r[2] * SC, r[3] * SC] for k, r in GL.items()},
            "sprites": {"fs": FS_W * SC, "led": LEDS['led_ice'][1] * SC, "sync": SY_S * SC},
            "pipe": [[X(p[0]), Y(p[1])] for p in PIPE_ON], "pipeSize": [PIPE_BOX[2] * SC, PIPE_BOX[3] * SC],
-           "title": [[[X(p[0]), Y(p[1])] for p in s] for s in TITLE_STROKES], "titleW": TITLE_W * SC,
+           "titleRect": [X(TITLE_EXT[0]), Y(TITLE_EXT[1]), TITLE_EXT[2] * SC, TITLE_EXT[3] * SC], "titleSvgBounds": TITLE_SVG_BOUNDS,
            "x2": [[[X(p[0]), Y(p[1])] for p in s] for s in X2_STROKES], "x2W": X2_W * SC,
            "knobR": KNOB_R * SC, "gaps": [[X(r[0]), Y(r[1]), r[2] * SC, r[3] * SC] for r in GAPS],
            "statusRect": [X(STATUS[0]), Y(STATUS[1]), STATUS[2] * SC, STATUS[3] * SC]},
