@@ -11,7 +11,7 @@ namespace layout
     const juce::Point<float> slotPos[7] = { { 46.45f, 78.02f }, { 46.45f, 130.90f }, { 46.45f, 184.82f }, { 46.45f, 237.70f }, { 46.45f, 291.62f }, { 46.45f, 345.54f }, { 46.45f, 398.42f } };
     const juce::Point<float> pipeOrigin[7] = { { 10.62f, 52.51f }, { 10.62f, 105.39f }, { 10.62f, 159.31f }, { 10.62f, 212.19f }, { 10.62f, 266.10f }, { 10.62f, 320.02f }, { 10.62f, 372.90f } };
     const float pipeW = 74.83f, pipeH = 50.56f;
-    const juce::Rectangle<float> glowSlot[7] = { { 14.66f, 38.35f, 101.12f, 76.85f }, { 14.66f, 91.23f, 101.12f, 76.85f }, { 14.66f, 145.15f, 101.12f, 76.85f }, { 14.66f, 198.03f, 101.12f, 76.85f }, { 14.66f, 251.95f, 101.12f, 76.85f }, { 14.66f, 305.86f, 101.12f, 76.85f }, { 14.66f, 358.74f, 101.12f, 76.85f } };
+    const juce::Rectangle<float> glowSlot[7] = { { 12.64f, 26.22f, 131.46f, 105.17f }, { 12.64f, 79.10f, 131.46f, 105.17f }, { 12.64f, 133.01f, 131.46f, 105.17f }, { 12.64f, 185.89f, 131.46f, 105.17f }, { 12.64f, 239.81f, 131.46f, 105.17f }, { 12.64f, 293.73f, 131.46f, 105.17f }, { 12.64f, 346.61f, 131.46f, 105.17f } };
     const juce::Point<float> ledTempo { 145.46f, 625.23f }, ledCheck { 472.04f, 625.23f }; const float ledS = 27.81f;
     const juce::Point<float> syncPos { 203.31f, 490.96f }; const float syncR = 29.33f, syncS = 85.04f;
     const juce::Point<float> fsTap { 145.46f, 784.91f }, fsBypass { 472.04f, 784.91f }; const float footR = 37.54f, fsS = 188.29f;

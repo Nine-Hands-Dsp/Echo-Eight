@@ -310,12 +310,15 @@ def glow(sources, box, col, keep_out, fn, h1=6.0, h2=22.0, gain=1.0):
     for (sx, sy, wgt) in sources:
         d2 = (px - sx) ** 2 + (py - sy) ** 2
         E += wgt * gain * (1.1 * h1 ** 3 / (d2 + h1 ** 2) ** 1.5 + 0.176 * h2 ** 3 / (d2 + h2 ** 2) ** 1.5)
-    fade = np.minimum.reduce([np.clip((px - x0u) / (0.2 * wu), 0, 1), np.clip((x0u + wu - px) / (0.2 * wu), 0, 1),
-                              np.clip((py - y0u) / (0.2 * hu), 0, 1), np.clip((y0u + hu - py) / (0.2 * hu), 0, 1)])
-    E *= fade * keep_out(px, py) * np.clip(alpha[y0p:y0p + nh, x0p:x0p + nw], 0, 1)
+    # retombee ronde et douce jusqu'aux bords de la zone (aucun bord de rectangle visible)
+    ex = np.clip(np.minimum(px - x0u, x0u + wu - px) / (0.5 * wu), 0, 1)
+    ey = np.clip(np.minimum(py - y0u, y0u + hu - py) / (0.5 * hu), 0, 1)
+    fade = (np.sin(0.5 * np.pi * ex) * np.sin(0.5 * np.pi * ey)) ** 1.5
+    E *= fade * cv2.GaussianBlur(keep_out(px, py), (0, 0), 0.8 * AS) * np.clip(alpha[y0p:y0p + nh, x0p:x0p + nw], 0, 1)
     col = np.array(col)
-    lum = reg.mean(2, keepdims=True)
-    lit = reg + (reg * 2.0 + 14.0 * np.clip(lum / 60.0, 0.3, 1.6)) * E[..., None] * col
+    # lumiere surtout additive et lisse (peu dependante des stries du brossage : plus de lueur rayee)
+    base = cv2.GaussianBlur(reg, (0, 0), 3.0 * AS)
+    lit = reg + (base * 0.9 + 0.35 * reg + 30.0) * E[..., None] * col
     add = lit - reg
     a = np.clip(np.abs(add).max(-1) / 12.0, 0, 1)
     rgb = np.where(a[..., None] > 1e-3, reg + add / np.maximum(a, 1e-3)[..., None], reg)
@@ -333,7 +336,7 @@ for i, ys in enumerate(SLOTS):
     A = (PX0 + PIPE_CUT + 1.0, ys + PIPE_A[1]); B = (PX0 + PIPE_B[0], ys + PIPE_B[1])
     src = [(A[0] + (B[0] - A[0]) * k, A[1] + (B[1] - A[1]) * k, 0.12 + 0.20 * k) for k in np.linspace(0, 1, 8)]
     keep = (lambda A_, B_: (lambda px, py: ((seg_dist(px, py, A_, B_)[0] > PIPE_R) | (px < PX0 + PIPE_CUT)).astype(np.float64)))((PX0 + PIPE_A[0], ys + PIPE_A[1]), B)
-    GL['slot%d' % i] = glow(src, (PX0 - 4.0, ys - 40.0, 100.0, 76.0), ICE, keep, 'glow_slot%d.png' % (i + 1), h1=5.5, h2=16.0, gain=2.6)
+    GL['slot%d' % i] = glow(src, (PX0 - 6.0, ys - 52.0, 130.0, 104.0), ICE, keep, 'glow_slot%d.png' % (i + 1), h1=5.5, h2=16.0, gain=2.6)
 GL['sync'] = glow([(SYNC[0], SYNC[1], 1.0)], sq(SYNC, 82.0), ICE, disc_out(SYNC, SYNC_R * 0.97), 'glow_sync.png', h1=10.0, h2=26.0, gain=0.6)
 PIPE_ON = [(x0u, y0u) for (x0u, y0u, _) in PIPES]
 
@@ -412,10 +415,11 @@ def x2_glow():
     x0p, y0p = int(round(box[0] * AS)), int(round(box[1] * AS))
     reg = img[y0p:y0p + nh, x0p:x0p + nw].astype(np.float64)
     yy, xx = np.mgrid[0:nh, 0:nw].astype(np.float64)
-    fade = np.minimum(np.clip(np.minimum(xx, nw - xx) / (0.25 * nw), 0, 1), np.clip(np.minimum(yy, nh - yy) / (0.3 * nh), 0, 1))
+    fade = (np.sin(0.5 * np.pi * np.clip(np.minimum(xx, nw - xx) / (0.5 * nw), 0, 1)) * np.sin(0.5 * np.pi * np.clip(np.minimum(yy, nh - yy) / (0.5 * nh), 0, 1))) ** 1.5
     E *= fade
-    col = np.array(ICE); lum = reg.mean(2, keepdims=True)
-    add = (reg * 2.0 + 14.0 * np.clip(lum / 60.0, 0.3, 1.6)) * E[..., None] * col
+    col = np.array(ICE)
+    base = cv2.GaussianBlur(reg, (0, 0), 3.0 * AS)
+    add = (base * 0.9 + 0.35 * reg + 30.0) * E[..., None] * col
     a = np.clip(np.abs(add).max(-1) / 12.0, 0, 1)
     rgb = np.where(a[..., None] > 1e-3, reg + add / np.maximum(a, 1e-3)[..., None], reg)
     save_sprite(np.dstack([np.clip(rgb, 0, 255), a * 255]).astype(np.float32), 'glow_x2.png', box[2], box[3])
