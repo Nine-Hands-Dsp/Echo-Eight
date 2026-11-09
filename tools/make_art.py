@@ -482,6 +482,7 @@ _lh = LOGO_W * 244.0 / 2602.0
 GAPS.append((LOGO_C[0] - LOGO_W / 2 - 8, LOGO_C[1] - _lh / 2 - 6, LOGO_W + 16, _lh + 12))
 # motif d'anneaux (assets/eight_echo_motif.svg) : centres des groupes gauche / droit sur les footswitches
 MOTIF_LEFT, MOTIF_RIGHT = (875.428571, 2048.0), (3220.571429, 2048.0)
+KNOCK_MARGIN = 8.0 / 2.0                         # 8 px de l'image (2 px par unite du plugin)
 MOTIF_K = (FS_B[0] - FS_T[0]) / (MOTIF_RIGHT[0] - MOTIF_LEFT[0])
 
 # ------------------------------------------------------------------ 13. Layout.h + layout.json (repere du plugin 617,5 x 900)
@@ -543,7 +544,8 @@ with open(os.path.join(ROOT, 'Layout.h'), 'w') as fo:
     fo.write(f"    // motif d'anneaux (eight_echo_motif.svg, repere 4096) : point gauche du SVG -> footswitch TAP, echelle\n")
     fo.write(f"    const juce::Point<float> motifSvgLeft {{ {MOTIF_LEFT[0]:.3f}f, {MOTIF_LEFT[1]:.3f}f }}; const float motifScale = {MOTIF_K * SC:.6f}f;\n")
     fo.write(f"    const juce::Point<float> logoPos {PT(LOGO_C)}; const float logoW = {f(LOGO_W * SC)};\n")
-    fo.write("    const juce::Rectangle<float> motifGaps[] = { " + ", ".join(RC(r) for r in GAPS) + " };\n")
+    fo.write(f"    // le motif s'arrete a cette distance du contour de chaque inscription (8 px de l'image 1800 = 4 unites)\n")
+    fo.write(f"    const float knockMargin = {f(KNOCK_MARGIN)};\n")
     fo.write("}\n")
 
 # ------------------------------------------------------------------ 14. donnees d'apercu (lues par tools/preview.py)
@@ -558,7 +560,7 @@ json.dump({"texts": [[t[0], t[1], t[2] * SC, t[3] * SC, X(t[4]), Y(t[5]), t[6]] 
            "pipe": [[X(p[0]), Y(p[1])] for p in PIPE_ON], "pipeSize": [PIPE_BOX[2] * SC, PIPE_BOX[3] * SC],
            "titleRect": [X(TITLE_EXT[0]), Y(TITLE_EXT[1]), TITLE_EXT[2] * SC, TITLE_EXT[3] * SC], "titleSvgBounds": TITLE_SVG_BOUNDS,
            "x2": [[[X(p[0]), Y(p[1])] for p in s] for s in X2_STROKES], "x2W": X2_W * SC,
-           "knobR": KNOB_R * SC, "gaps": [[X(r[0]), Y(r[1]), r[2] * SC, r[3] * SC] for r in GAPS],
+           "knobR": KNOB_R * SC, "knockMargin": KNOCK_MARGIN,
            "statusRect": [X(STATUS[0]), Y(STATUS[1]), STATUS[2] * SC, STATUS[3] * SC]},
           open(os.path.join(ROOT, 'tools', 'print.json'), 'w'), indent=0)
 print('ok')

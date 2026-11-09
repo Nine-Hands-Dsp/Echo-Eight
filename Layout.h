@@ -63,5 +63,6 @@ namespace layout
     // motif d'anneaux (eight_echo_motif.svg, repere 4096) : point gauche du SVG -> footswitch TAP, echelle
     const juce::Point<float> motifSvgLeft { 875.429f, 2048.000f }; const float motifScale = 0.139256f;
     const juce::Point<float> logoPos { 308.75f, 874.08f }; const float logoW = 188.09f;
-    const juce::Rectangle<float> motifGaps[] = { { 121.09f, 862.63f, 48.74f, 20.83f }, { 428.06f, 862.63f, 87.95f, 20.83f }, { 232.86f, 762.14f, 151.78f, 49.58f }, { 218.18f, 642.34f, 181.14f, 42.85f }, { 126.25f, 670.77f, 38.43f, 26.78f }, { 452.82f, 671.12f, 38.43f, 26.78f }, { 206.62f, 859.19f, 204.27f, 29.77f } };
+    // le motif s'arrete a cette distance du contour de chaque inscription (8 px de l'image 1800 = 4 unites)
+    const float knockMargin = 4.00f;
 }

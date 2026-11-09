@@ -176,8 +176,14 @@ cv = np.asarray(canvas).astype(np.float32)
 def comp(col, a):
     global cv
     cv[..., :3] = cv[..., :3] * (1 - a[..., None]) + col * a[..., None]
-for g_ in pj['gaps']:
-    x0, y0 = int(g_[0] * K), int(g_[1] * K); motif_a[y0:y0 + int(g_[3] * K), x0:x0 + int(g_[2] * K)] = 0
+# le motif epouse la forme des inscriptions : il s'arrete a 8 px (image 1800) du contour de chaque texte, triangle,
+# titre, X2 et logo (marge = contour du texte agrandi de 8 px) ; les footswitches passent simplement par-dessus
+allink = np.maximum.reduce([np.asarray(ink), np.asarray(inkx), (logo_a * 255).astype(np.uint8)])
+rk = int(round(pj['knockMargin'] * S * SS))
+kern = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2 * rk + 1, 2 * rk + 1))
+knock = cv2.dilate((allink > 100).astype(np.uint8), kern).astype(np.float32)
+knock = cv2.GaussianBlur(knock, (0, 0), 0.6 * SS)
+motif_a = motif_a * (1.0 - knock)
 mot_a = down(motif_a) * 0.95; mot_c = down(motif * motif_a[..., None]) / np.maximum(down(motif_a), 1e-4)[..., None]
 comp(mot_c, mot_a)
 comp(np.array(SILK, np.float32), down(np.asarray(ink, np.float32) / 255.0))
