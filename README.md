@@ -9,14 +9,16 @@ Plugin VST3 (Windows / macOS, + AU sur Mac) reproduisant le fonctionnement d'un 
   <br>
   <a href="https://github.com/Nine-Hands-Dsp/Echo-Eight/releases/latest/download/EightEcho-Notice.pdf"><img alt="Télécharger la notice (PDF)" src="https://img.shields.io/badge/%F0%9F%93%96%20Notice-PDF-919496?style=for-the-badge"></a>
   <br>
-  <a href="https://github.com/Nine-Hands-Dsp/Echo-Eight/releases/latest"><img alt="Dernière version" src="https://img.shields.io/github/v/release/Nine-Hands-Dsp/Echo-Eight?label=derni%C3%A8re%20version&color=919496"></a>
+  <a href="https://github.com/Nine-Hands-Dsp/Echo-Eight/releases/latest"><img alt="Dernière version" src="https://img.shields.io/github/v/release/Nine-Hands-Dsp/Echo-Eight?label=derni%C3%A8re%20version&color=566774"></a>
 </p>
 
+## Installation
+Les boutons ci-dessus téléchargent toujours la dernière version. Windows : copier `Eight Echo.vst3` dans
+`C:\Program Files\Common Files\VST3`. macOS : `~/Library/Audio/Plug-Ins/VST3` (et `Eight Echo.component` dans `~/Library/Audio/Plug-Ins/Components`).
+
 ## Compilation (GitHub)
-Tous les fichiers sont à la racine. Pousser le dossier sur le dépôt : le workflow
-`.github/workflows/build.yml` compile sous `windows-2022` (VST3) et macOS (VST3 + AU).
-Le VST3 se récupère dans l'onglet **Actions → artefacts**, à copier dans
-`C:\Program Files\Common Files\VST3`.
+Tous les fichiers sont à la racine. Le workflow `.github/workflows/build.yml` compile sous `windows-2022` (VST3) et macOS (VST3 + AU)
+et publie la Release (fichiers à nom fixe, notice comprise) à chaque push sur `main`.
 
 ## Commandes (visuel Eight Echo)
 | Élément | Rôle |
@@ -31,14 +33,14 @@ Le VST3 se récupère dans l'onglet **Actions → artefacts**, à copier dans
 | LED gauche | Bat la mesure : calée sur la mesure du DAW quand SYNC est actif et que le DAW joue (1er temps plus fort) ; relancée exactement à chaque tap (1er tap = temps 1) ; sinon au temps de retard. Scintille pendant le Twist |
 | LED droite | Le témoin CHECK de la DD-8 : rouge = effet actif, vert = mode tempo / lecture loop, orange = overdub, clignotements = enregistrement / tap |
 | X2 | Temps doublé (sortie « Long » de la DD-8). S'illumine quand actif |
-| LED 1 à 7 | Mémoires : clic = rappel, **maintien 1 s = sauvegarde** (la LED clignote pour confirmer). LED pleine = réglage identique à la mémoire, LED adoucie = mémoire modifiée |
-| SYNC | Cale le delay sur le tempo du DAW (avec la division du tap). Bouton allumé bleu glace qui respire au tempo ; ligne d'état « SYNC120 » (« SYNC? » = pas de tempo reçu). Re-clic = retour à TIME / tap |
+| Tubes 1 à 7 | Mémoires (tubes de lumière qui traversent la tranche gauche) : clic = rappel, **maintien 1 s = sauvegarde** (le tube clignote pour confirmer). Tube plein = réglage identique à la mémoire, tube adouci = mémoire modifiée |
+| SYNC | Cale le delay sur le tempo du DAW (avec la division du tap). Bouton allumé bleu glace qui respire au tempo ; ligne d'état « SYNC 120 BPM » (« SYNC · PAS DE TEMPO DU DAW » sinon). Re-clic = retour à TIME / tap |
 | △ / ▽ | Mémoire précédente / suivante |
-| Ligne d'état (en haut) | Mémoire, mode, temps réel en ms, niveaux |
+| Pastille du haut | Au repos : barre de presets (mémoire en cours · nom du preset, * = modifiée ; ◀ ▶ = preset d'usine précédent / suivant ; clic sur le nom = menu des presets). Pendant un réglage : ligne d'état (E.LEVEL 64 %, TIME 420 ms, MODE TAPE…), puis retour en fondu |
 
 **Clic droit** (réglages cachés de la DD-8) : presets d'usine (chargés dans la mémoire en cours), mode stéréo
 (Independent / Wide / Panning), division du tap, sauvegarde en mémoire 1-7, carryover, SYNC, affectation de la pédale d'expression
-(paramètre EXP), Plugin size (60 % / 75 % / 100 %, comme Textural et Freeze Shimmer ; « (default) » marque la taille par défaut choisie). Plugin size > Default size (new windows) : taille d'ouverture des nouvelles fenêtres (toutes les instances, comme dans Octopus), appliquée aussi tout de suite à la fenêtre ouverte ; une taille changée sur une instance est sauvegardée avec le projet et reprise à sa réouverture. La fenêtre ne peut jamais être réduite sous 60 % (390 x 494).
+(paramètre EXP), Plugin size (60 % / 75 % / 100 %, comme Textural et Freeze Shimmer ; « (default) » marque la taille par défaut choisie). Plugin size > Default size (new windows) : taille d'ouverture des nouvelles fenêtres (toutes les instances, comme dans Octopus), appliquée aussi tout de suite à la fenêtre ouverte ; une taille changée sur une instance est sauvegardée avec le projet et reprise à sa réouverture. La fenêtre (pédale plein cadre) ne peut jamais être réduite sous 60 % ; elle va jusqu'à 150 %.
 
 Tout est automatisable / assignable en MIDI dans Reaper (footswitch, tap, twist compris).
 
@@ -161,5 +163,14 @@ Looper : Looper
 ## Version 1.8.3
 - v1.8.3 : plus aucune assignation MIDI par défaut (les CC 20-27 et 80-83 entraient en conflit avec le contrôleur qui pilote Octopus sur la même piste : son footswitch actionnait aussi BYPASS d'Eight Echo). Une commande ne réagit au MIDI qu'après un MIDI Learn, fait par clic droit sur la commande (EXP : Clic droit › Expression pedal › MIDI Learn: EXP). Un projet d'une version plus ancienne s'ouvre sans aucune assignation. Sous-menu MIDI et « Reset MIDI to defaults » retirés ; « Cancel MIDI learn » en tête du menu pendant l'attente, « Clear all MIDI assignments » dès qu'une commande est assignée.
 
+## Version 2.0.0 – nouveau visuel
+- Pédale plein cadre (image 1235 x 1800, boîtier rendu en 4K, aluminium brossé bleu-gris, bevel rond de 17 px, lumière en haut à gauche à 45°) ; fenêtre 60 % / 75 % / 100 %, jusqu'à 150 %.
+- Mémoires 1 à 7 : tubes de lumière intégrés à la tranche gauche (bevel droit, aplat sous l'acrylique), lumière qui déborde et éclaire la plaque.
+- Pièces photo NINE HANDS | DSP : potards, footswitchs, jacks, LED et bouton SYNC ; sérigraphie, titre EIGHT ECHO, X2, motif d'anneaux (qui s'écarte des inscriptions) et logo en vectoriel, nets à toutes les tailles.
+- Barre de presets et ligne d'état dans la même pastille (Poppins, taille de référence) ; textes d'état en français ; nom du preset gardé dans chaque mémoire.
+- Menus clic droit au design d'Octopus, ouverts là où l'on clique (en-tête de la pédale ou de la commande avec son CC MIDI).
+- Nom du mode choisi en bleu ; X2 et ses traits s'allument avec une lueur sur la plaque.
+- `tools/render` : captures de la vraie fenêtre (aperçu, notice).
+
 ## Notice
-- `docs/EightEcho_Manual_EN-FR_v1.8.3.pdf` (anglais puis français). Générateur : `python3 tools/manual.py <sortie.pdf>` (textes dans `tools/manual_text.py`, illustrations dans `tools/manual/` ; LED des mémoires et SYNC recomposées depuis `leds_on.png` / `sync_on.png`).
+- `docs/EightEcho_Notice_FR_v2.0.0.pdf` (français). Générateur : `python3 tools/manual.py <captures tools/render> <sortie.pdf>` (textes dans `tools/manual_text.py`, schémas dans `tools/manual/`, illustrations tirées des captures du plugin).

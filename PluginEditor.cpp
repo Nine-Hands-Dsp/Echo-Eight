@@ -6,53 +6,84 @@ using namespace juce;
 
 namespace
 {
-const Colour kSilk  (0xffe6ecf1);   // serigraphie blanche du visuel
-const Colour kIce   (0xffbfe6ff);   // bleu glace des LED
+const Colour kSilk    (0xffe6ecf1);   // serigraphie blanche
+const Colour kIce     (0xff96d2ff);   // bleu glace (liseré de la pastille, numero de memoire)
+const Colour kX2Lit   (0xffd7eeff);   // X2 allume
+const Colour kModeSel (0xffacd6fa);   // nom du mode choisi (bleu un peu plus marque que la serigraphie)
+const Colour kPanel   (0xff090e13);   // face de la pastille
+const Colour kMenuAccent (0xff8fd0ff);
+
+// index des valeurs suivies pour la ligne d'etat
+const char* const kWatch[] = { "elevel", "mix", "feedback", "time", "mode", "long", "sync", "footswitch", "tap" };
+constexpr int kNumWatch = 9;
+
+String fr (const char* utf8) { return String (CharPointer_UTF8 (utf8)); }
 }
 
 // =============================================================================
 PedalView::PedalView (EightEchoProcessor& p) : proc (p)
 {
-    // images tirees du visuel : pedale (potards sans repere, LED eteintes), LED allumees,
-    // reperes des potards, lentilles allumees (diffusion de lumiere calculee sur l'image)
-    bg      = ImageCache::getFromMemory (BinaryData::background_png, BinaryData::background_pngSize);
-    ledsOn  = ImageCache::getFromMemory (BinaryData::leds_on_png, BinaryData::leds_on_pngSize);
-    x2On    = ImageCache::getFromMemory (BinaryData::x2_on_png, BinaryData::x2_on_pngSize);
-    syncOn  = ImageCache::getFromMemory (BinaryData::sync_on_png, BinaryData::sync_on_pngSize);
-    lensIce = ImageCache::getFromMemory (BinaryData::lens_left_ice_png, BinaryData::lens_left_ice_pngSize);
-    lensRed = ImageCache::getFromMemory (BinaryData::lens_right_red_png, BinaryData::lens_right_red_pngSize);
-    lensGreen  = ImageCache::getFromMemory (BinaryData::lens_right_green_png, BinaryData::lens_right_green_pngSize);
-    lensOrange = ImageCache::getFromMemory (BinaryData::lens_right_orange_png, BinaryData::lens_right_orange_pngSize);
-    pointers[0] = ImageCache::getFromMemory (BinaryData::pointer0_png, BinaryData::pointer0_pngSize);
-    pointers[1] = ImageCache::getFromMemory (BinaryData::pointer1_png, BinaryData::pointer1_pngSize);
-    pointers[2] = ImageCache::getFromMemory (BinaryData::pointer2_png, BinaryData::pointer2_pngSize);
-    pointers[3] = ImageCache::getFromMemory (BinaryData::pointer3_png, BinaryData::pointer3_pngSize);
-    pointers[4] = ImageCache::getFromMemory (BinaryData::pointer4_png, BinaryData::pointer4_pngSize);
+    auto img = [] (const void* d, int n) { return ImageCache::getFromMemory (d, n); };
+    bg         = img (BinaryData::background_png, BinaryData::background_pngSize);
+    footswitch = img (BinaryData::footswitch_png, BinaryData::footswitch_pngSize);
+    pipeOn     = img (BinaryData::pipe_on_png, BinaryData::pipe_on_pngSize);
+    ledIce     = img (BinaryData::led_ice_png, BinaryData::led_ice_pngSize);
+    ledRed     = img (BinaryData::led_red_png, BinaryData::led_red_pngSize);
+    ledGreen   = img (BinaryData::led_green_png, BinaryData::led_green_pngSize);
+    ledOrange  = img (BinaryData::led_orange_png, BinaryData::led_orange_pngSize);
+    syncOn     = img (BinaryData::sync_on_png, BinaryData::sync_on_pngSize);
+    glowTempo  = img (BinaryData::glow_tempo_png, BinaryData::glow_tempo_pngSize);
+    glowRed    = img (BinaryData::glow_check_red_png, BinaryData::glow_check_red_pngSize);
+    glowGreen  = img (BinaryData::glow_check_green_png, BinaryData::glow_check_green_pngSize);
+    glowOrange = img (BinaryData::glow_check_orange_png, BinaryData::glow_check_orange_pngSize);
+    glowSync   = img (BinaryData::glow_sync_png, BinaryData::glow_sync_pngSize);
+    glowX2     = img (BinaryData::glow_x2_png, BinaryData::glow_x2_pngSize);
+    glowSlot[0] = img (BinaryData::glow_slot1_png, BinaryData::glow_slot1_pngSize);
+    glowSlot[1] = img (BinaryData::glow_slot2_png, BinaryData::glow_slot2_pngSize);
+    glowSlot[2] = img (BinaryData::glow_slot3_png, BinaryData::glow_slot3_pngSize);
+    glowSlot[3] = img (BinaryData::glow_slot4_png, BinaryData::glow_slot4_pngSize);
+    glowSlot[4] = img (BinaryData::glow_slot5_png, BinaryData::glow_slot5_pngSize);
+    glowSlot[5] = img (BinaryData::glow_slot6_png, BinaryData::glow_slot6_pngSize);
+    glowSlot[6] = img (BinaryData::glow_slot7_png, BinaryData::glow_slot7_pngSize);
+
+    sansFace = Typeface::createSystemTypefaceFor (BinaryData::LiberationSansBold_ttf, BinaryData::LiberationSansBold_ttfSize);
+    monoFace = Typeface::createSystemTypefaceFor (BinaryData::LiberationMonoBold_ttf, BinaryData::LiberationMonoBold_ttfSize);
+    popMed   = Typeface::createSystemTypefaceFor (BinaryData::PoppinsMedium_ttf, BinaryData::PoppinsMedium_ttfSize);
+    auto svg = [] (const char* d, int n) -> std::unique_ptr<Drawable>
+    {
+        if (auto xml = XmlDocument::parse (String::fromUTF8 (d, n))) return Drawable::createFromSVG (*xml);
+        return nullptr;
+    };
+    logo  = svg (BinaryData::NineHandsLogo_svg, BinaryData::NineHandsLogo_svgSize);
+    motif = svg (BinaryData::eight_echo_motif_svg, BinaryData::eight_echo_motif_svgSize);
+    title = svg (BinaryData::eight_echo_title_svg, BinaryData::eight_echo_title_svgSize);
+    buildPrint();
     setInterceptsMouseClicks (true, false);
 
-    auto addKnob = [this] (const char* id, Point<float> c, float r, bool isMode)
-    {
-        knobs.push_back ({ id, c, r, isMode, nullptr, 0.5f, 0.5 });
-    };
-    // centres mesures sur le visuel (pixels de l'image)
-    // centre du chapeau (axe de rotation) mesure sur le visuel
-    addKnob ("elevel",   { 204.0f, 157.0f }, 54, false);
-    addKnob ("mix",      { 394.5f, 157.0f }, 54, false);
-    addKnob ("feedback", { 203.5f, 329.0f }, 54, false);
-    addKnob ("time",     { 394.5f, 328.0f }, 54, false);
-    addKnob ("mode",     { 396.5f, 495.0f }, 54, true);
-
+    const char* ids[5] = { "elevel", "mix", "feedback", "time", "mode" };
+    for (int k = 0; k < 5; ++k)
+        knobs.push_back ({ ids[k], layout::knobPos[k], layout::knobR, k == 4, nullptr, 0.5f, 0.5 });
     for (size_t k = 0; k < knobs.size(); ++k)
     {
         auto* par = proc.apvts.getParameter (knobs[k].id);
         knobs[k].def = par->getDefaultValue();
-        knobs[k].att = std::make_unique<ParameterAttachment> (*par, [this, k] (float v) { knobs[k].value = v; repaint(); });
+        knobs[k].att = std::make_unique<ParameterAttachment> (*par, [this, k] (float v)
+        {
+            knobs[k].value = v;
+            const auto c = knobs[k].c; const float r = knobs[k].r + 4.0f;
+            repaint (Rectangle<float> (c.x - r, c.y - r, r * 2, r * 2).getSmallestIntegerContainer());
+            if (knobs[k].isMode) repaint (Rectangle<float> (c.x - 150, c.y - 110, 300, 200).getSmallestIntegerContainer());
+        });
         knobs[k].att->sendInitialUpdate();
     }
-    longAtt = std::make_unique<ParameterAttachment> (*proc.apvts.getParameter ("long"), [this] (float v) { longOn = v > 0.5f; repaint(); });
+    longAtt = std::make_unique<ParameterAttachment> (*proc.apvts.getParameter ("long"), [this] (float v)
+        { longOn = v > 0.5f; repaint (layout::glow_x2.getSmallestIntegerContainer().expanded (4)); });
     longAtt->sendInitialUpdate();
-    syncAtt = std::make_unique<ParameterAttachment> (*proc.apvts.getParameter ("sync"), [this] (float v) { syncParam = v > 0.5f; repaint(); });
+    syncAtt = std::make_unique<ParameterAttachment> (*proc.apvts.getParameter ("sync"), [this] (float v)
+        { syncParam = v > 0.5f; repaint (layout::glow_sync.getSmallestIntegerContainer().expanded (4)); });
     syncAtt->sendInitialUpdate();
+    for (int i = 0; i < kNumWatch; ++i) lastVals[(size_t) i] = proc.apvts.getRawParameterValue (kWatch[i])->load();
+    lastLooper = proc.looperState.load();
     startTimerHz (30);
 }
 
@@ -66,21 +97,164 @@ void PedalView::setParam (const char* id, float v)
     }
 }
 
+void PedalView::showStatus (double ms) { statusUntil = Time::getMillisecondCounterHiRes() + ms; }
+
 // ----------------------------------------------------------------------------
-Point<float> PedalView::modeLabelPos (int i) const
+//  Serigraphie vectorielle (unites du plugin) : construite une fois
+// ----------------------------------------------------------------------------
+static Path textPath (const Typeface::Ptr& face, const layout::Txt& t)
 {
-    return knobs[4].c.getPointOnCircumference (63.0f, modeAngle (i));
+    const Font font (FontOptions (face).withPointHeight (t.em));
+    const String s (t.s);
+    float total = 0.0f;
+    for (int i = 0; i < s.length(); ++i)
+        total += GlyphArrangement::getStringWidth (font, String::charToString (s[i])) + (i > 0 ? t.track : 0.0f);
+    const float base = (font.getAscent() - font.getDescent()) * 0.5f;     // centre vertical entre ascendante et descendante
+    GlyphArrangement ga;
+    float x = -total * 0.5f;
+    for (int i = 0; i < s.length(); ++i)
+    {
+        const String ch = String::charToString (s[i]);
+        ga.addLineOfText (font, ch, x, base);
+        x += GlyphArrangement::getStringWidth (font, ch) + t.track;
+    }
+    Path p; ga.createPath (p);
+    p.applyTransform (AffineTransform::rotation (-t.rot * MathConstants<float>::pi / 180.0f).translated (t.x, t.y));
+    return p;
 }
 
-// etiquettes alignees vers l'exterieur (a gauche du potard : alignees a droite, etc.)
+void PedalView::buildPrint()
+{
+    printPath.clear(); x2Path.clear(); knockPath.clear();
+    for (const auto& t : layout::texts) printPath.addPath (textPath (t.font == 1 ? monoFace : sansFace, t));
+    for (const auto& d : layout::dots) printPath.addEllipse (d.x - d.r, d.y - d.r, d.r * 2.0f, d.r * 2.0f);
+    const int nLines = (int) (sizeof (layout::lines) / sizeof (layout::lines[0]));
+    for (int i = 0; i < nLines; ++i)
+    {
+        const auto& l = layout::lines[i];
+        Path seg; seg.startNewSubPath (l.x0, l.y0); seg.lineTo (l.x1, l.y1);
+        Path out; PathStrokeType (l.w, PathStrokeType::mitered, PathStrokeType::butt).createStrokedPath (out, seg);
+        (i >= nLines - 2 ? x2Path : printPath).addPath (out);          // les 2 derniers traits s'allument avec X2
+    }
+    for (const auto& t : layout::tris)
+    {
+        Path tri; tri.addTriangle (t.x0, t.y0, t.x1, t.y1, t.x2, t.y2);
+        Path out; PathStrokeType (layout::triStroke, PathStrokeType::curved, PathStrokeType::rounded).createStrokedPath (out, tri);
+        printPath.addPath (out);
+    }
+    // X2 : lettrage d'origine en traits (extremites droites)
+    {
+        int k = 0;
+        for (int n : layout::x2Lens)
+        {
+            Path s;
+            for (int i = 0; i < n; ++i, ++k)
+            {
+                const float x = layout::x2Pts[2 * k], y = layout::x2Pts[2 * k + 1];
+                if (i == 0) s.startNewSubPath (x, y); else s.lineTo (x, y);
+            }
+            Path out; PathStrokeType (layout::x2Stroke, PathStrokeType::curved, PathStrokeType::butt).createStrokedPath (out, s);
+            x2Path.addPath (out);
+        }
+    }
+    // titre EIGHT ECHO (SVG fourni) cale dans son cadre
+    if (title != nullptr)
+    {
+        auto tp = title->getOutlineAsPath();
+        const auto b = tp.getBounds();
+        if (! b.isEmpty())
+            tp.applyTransform (RectanglePlacement (RectanglePlacement::stretchToFit).getTransformToFit (b, layout::titleRect));
+        printPath.addPath (tp);
+    }
+    // zones que le motif d'anneaux evite : chaque inscription (texte, triangle, titre, X2, logo, nom des modes)
+    knockPath.addPath (printPath);
+    knockPath.addPath (x2Path);
+    if (logo != nullptr)
+    {
+        auto lp = logo->getOutlineAsPath();
+        const auto vb = lp.getBounds();
+        const float w = layout::logoW, h = w * vb.getHeight() / jmax (1.0f, vb.getWidth());
+        lp.applyTransform (RectanglePlacement (RectanglePlacement::centred).getTransformToFit (
+            vb, { layout::logoPos.x - w * 0.5f, layout::logoPos.y - h * 0.5f, w, h }));
+        knockPath.addPath (lp);
+    }
+}
+
+// ----------------------------------------------------------------------------
+//  Caches (timer seulement, anti-gel) : fond et serigraphie a la resolution de l'ecran
+// ----------------------------------------------------------------------------
+void PedalView::rebuildCaches (float ppu)
+{
+    ppu = jlimit (0.3f, 8.0f, ppu);
+    if (bgCache.isValid() && std::abs (ppu - cachePpu) < 0.002f) return;
+    cachePpu = ppu;
+    const int W = roundToInt (imgW * ppu), H = roundToInt (imgH * ppu);
+    bgCache = (W >= bg.getWidth()) ? bg : bg.rescaled (W, H, Graphics::highResamplingQuality);
+
+    const auto toPx = AffineTransform::scale ((float) W / imgW, (float) H / imgH);
+    // motif d'anneaux, interrompu a knockMargin du contour de chaque inscription
+    Image mot (Image::ARGB, W, H, true);
+    if (motif != nullptr)
+    {
+        Graphics mg (mot);
+        motif->draw (mg, 0.95f, AffineTransform::translation (-layout::motifSvgLeft.x, -layout::motifSvgLeft.y)
+                                    .scaled (layout::motifScale)
+                                    .translated (layout::fsTap.x, layout::fsTap.y)
+                                    .followedBy (toPx));
+    }
+    {
+        Image mask (Image::SingleChannel, W, H, true);
+        {
+            Graphics kg (mask);
+            kg.setColour (Colours::white);
+            kg.fillPath (knockPath, toPx);
+            kg.strokePath (knockPath, PathStrokeType (layout::knockMargin * 2.0f, PathStrokeType::curved, PathStrokeType::rounded), toPx);
+        }
+        Image::BitmapData md (mot, Image::BitmapData::readWrite), kd (mask, Image::BitmapData::readOnly);
+        for (int y = 0; y < H; ++y)
+        {
+            auto* mp = md.getLinePointer (y);
+            const auto* kp = kd.getLinePointer (y);
+            for (int x = 0; x < W; ++x)
+            {
+                const int k = kp[x * kd.pixelStride];
+                if (k == 0) continue;
+                auto* px = mp + x * md.pixelStride;
+                const int keep = 255 - k;
+                for (int c = 0; c < 4; ++c) px[c] = (uint8) ((px[c] * keep + 127) / 255);
+            }
+        }
+    }
+    Image pr (Image::ARGB, W, H, true);
+    {
+        Graphics pg (pr);
+        pg.drawImageAt (mot, 0, 0);
+        pg.addTransform (toPx);
+        pg.setColour (kSilk);
+        pg.fillPath (printPath);
+        pg.fillPath (x2Path);                          // X2 eteint : serigraphie blanche
+        if (logo != nullptr)
+        {
+            const auto vb = logo->getDrawableBounds();
+            const float w = layout::logoW, h = w * vb.getHeight() / jmax (1.0f, vb.getWidth());
+            logo->drawWithin (pg, { layout::logoPos.x - w * 0.5f, layout::logoPos.y - h * 0.5f, w, h }, RectanglePlacement::centred, 0.94f);
+        }
+    }
+    printCache = pr;
+    repaint();
+}
+
+// ----------------------------------------------------------------------------
 Rectangle<float> PedalView::modeLabelRect (int i, Justification& just) const
 {
-    const auto p = modeLabelPos (i);
-    const float s = std::sin (modeAngle (i)), w = 72.0f, h = 14.0f;
-    if (s > 0.3f)  { just = Justification::centredLeft;  return { p.x + 1, p.y - h * 0.5f, w, h }; }
-    if (s < -0.3f) { just = Justification::centredRight; return { p.x - w - 1, p.y - h * 0.5f, w, h }; }
+    const auto c = knobs[4].c;
+    const float a = modeAngle (i), s = std::sin (a);
+    const Point<float> p (c.x + layout::modeLabelR * s, c.y - layout::modeLabelR * std::cos (a));
+    const float w = 80.0f, h = layout::modeFont * 1.5f;
+    if (s > 0.3f)  { just = Justification::centredLeft;  return { p.x, p.y - h * 0.5f, w, h }; }
+    if (s < -0.3f) { just = Justification::centredRight; return { p.x - w, p.y - h * 0.5f, w, h }; }
     just = Justification::centred;
-    return { p.x - w * 0.5f, p.y - h - 1, w, h };
+    return { p.x - w * 0.5f, p.y - layout::modeFont * 0.45f - h * 0.5f, w, h };
 }
 
 int PedalView::knobAt (Point<float> p) const
@@ -92,11 +266,16 @@ int PedalView::knobAt (Point<float> p) const
 
 int PedalView::modeLabelAt (Point<float> p) const
 {
+    const Font f (FontOptions (sansFace).withPointHeight (layout::modeFont));
     for (int i = 0; i < wiga::kNumModes; ++i)
     {
         Justification j (Justification::centred);
         auto r = modeLabelRect (i, j);
-        if (r.expanded (2, 2).contains (p) && p.getDistanceFrom (knobs[4].c) > knobs[4].r) return i;
+        const float tw = GlyphArrangement::getStringWidth (f, wiga::modeName (i));
+        if (j == Justification::centredLeft) r.setWidth (tw);
+        else if (j == Justification::centredRight) r.setLeft (r.getRight() - tw);
+        else r = r.withSizeKeepingCentre (tw, r.getHeight());
+        if (r.expanded (3, 2).contains (p) && p.getDistanceFrom (knobs[4].c) > knobs[4].r) return i;
     }
     return -1;
 }
@@ -104,33 +283,50 @@ int PedalView::modeLabelAt (Point<float> p) const
 int PedalView::slotAt (Point<float> p) const
 {
     for (int i = 0; i < EightEchoProcessor::kNumSlots; ++i)
-        if (p.x > 22 && p.x < 100 && std::abs (p.y - slotY (i)) < 20) return i;
+        if (p.x > layout::boxRect.getX() && p.x < 112.0f && std::abs (p.y - layout::slotPos[i].y) < 24.0f) return i;
     return -1;
+}
+
+int PedalView::presetZoneAt (Point<float> p) const
+{
+    const auto r = layout::statusRect;
+    if (! r.contains (p)) return 0;
+    if (p.x < r.getX() + 34.0f) return 1;
+    if (p.x > r.getRight() - 34.0f) return 3;
+    return 2;
 }
 
 // ----------------------------------------------------------------------------
 void PedalView::mouseMove (const MouseEvent& e)
 {
-    auto p = e.position;
-    const bool hot = knobAt (p) >= 0 || modeLabelAt (p) >= 0 || slotAt (p) >= 0
-                  || p.getDistanceFrom (cSync) < 28 || p.getDistanceFrom (cX2) < 36
-                  || p.getDistanceFrom (cPrev) < 18 || p.getDistanceFrom (cNext) < 18
-                  || p.getDistanceFrom (cTap) < 52 || p.getDistanceFrom (cBypass) < 52;
+    const auto p = e.position;
+    hoverZone = presetZoneAt (p);
+    if (hoverZone != drawnHover) { drawnHover = hoverZone; repaint (layout::statusRect.getSmallestIntegerContainer().expanded (3)); }
+    const bool hot = hoverZone != 0 || knobAt (p) >= 0 || modeLabelAt (p) >= 0 || slotAt (p) >= 0
+                  || p.getDistanceFrom (layout::syncPos) < layout::syncR || p.getDistanceFrom (layout::x2Pos) < 36
+                  || p.getDistanceFrom (layout::triUp) < 16 || p.getDistanceFrom (layout::triDown) < 16
+                  || onFootswitch (p, layout::fsTap) || onFootswitch (p, layout::fsBypass);
     setMouseCursor (hot ? MouseCursor::PointingHandCursor : MouseCursor::NormalCursor);
+}
+
+void PedalView::mouseExit (const MouseEvent&)
+{
+    hoverZone = 0;
+    if (drawnHover != 0) { drawnHover = 0; repaint (layout::statusRect.getSmallestIntegerContainer().expanded (3)); }
 }
 
 // commande apprenable en MIDI sous la souris (memes zones que les clics)
 int PedalView::learnIndexAt (Point<float> p) const
 {
     auto idx = [] (const char* id) { return EightEchoProcessor::learnIndexOf (id); };
-    if (p.getDistanceFrom (cBypass) < 52) return idx ("footswitch");
-    if (p.getDistanceFrom (cTap) < 52)    return idx ("tap");
-    if (p.getDistanceFrom (cX2) < 36)     return idx ("long");
-    if (p.getDistanceFrom (cSync) < 28)   return idx ("sync");
-    if (p.getDistanceFrom (cPrev) < 18)   return idx ("prev");
-    if (p.getDistanceFrom (cNext) < 18)   return idx ("next");
+    if (onFootswitch (p, layout::fsBypass)) return idx ("footswitch");
+    if (onFootswitch (p, layout::fsTap))    return idx ("tap");
+    if (p.getDistanceFrom (layout::x2Pos) < 36)          return idx ("long");
+    if (p.getDistanceFrom (layout::syncPos) < layout::syncR) return idx ("sync");
+    if (p.getDistanceFrom (layout::triUp) < 16)   return idx ("prev");
+    if (p.getDistanceFrom (layout::triDown) < 16) return idx ("next");
     if (modeLabelAt (p) >= 0 && knobAt (p) < 0) return idx ("mode");
-    if (int k = knobAt (p); k >= 0)       return EightEchoProcessor::learnIndexOf (knobs[(size_t) k].id);
+    if (int k = knobAt (p); k >= 0) return EightEchoProcessor::learnIndexOf (knobs[(size_t) k].id);
     return -1;
 }
 
@@ -139,26 +335,37 @@ void PedalView::mouseDown (const MouseEvent& e)
     const auto p = e.position;
     if (e.mods.isPopupMenu()) { if (onBackgroundRightClick) onBackgroundRightClick (e); return; }
 
-    // footswitches
-    if (p.getDistanceFrom (cBypass) < 52)
+    if (int z = presetZoneAt (p); z != 0)
+    {
+        statusUntil = 0.0; learnedUntil = 0.0;            // la ligne d'etat ne bloque pas : la barre de presets revient
+        if (z == 2) { if (onPresetMenu) onPresetMenu(); }
+        else
+        {
+            const int n = proc.getNumPrograms();
+            const int cur = proc.getCurrentProgram();
+            proc.setCurrentProgram (((cur + (z == 1 ? -1 : 1)) % n + n) % n);
+        }
+        return;
+    }
+    if (onFootswitch (p, layout::fsBypass))
     {
         pressed = BYPASSFS;
         if (auto* par = proc.apvts.getParameter ("footswitch")) { par->beginChangeGesture(); par->setValueNotifyingHost (1.0f); }
         repaint(); return;
     }
-    if (p.getDistanceFrom (cTap) < 52)
+    if (onFootswitch (p, layout::fsTap))
     {
         pressed = TAPFS; tapPressTime = Time::getMillisecondCounterHiRes(); twistSent = false;
         if (auto* par = proc.apvts.getParameter ("tap")) { par->beginChangeGesture(); par->setValueNotifyingHost (1.0f); }
         repaint(); return;
     }
-    if (p.getDistanceFrom (cX2) < 36) { setParam ("long", longOn ? 0.0f : 1.0f); return; }
+    if (p.getDistanceFrom (layout::x2Pos) < 36) { setParam ("long", longOn ? 0.0f : 1.0f); return; }
     // SYNC : cale le delay sur le tempo du DAW (re-clic = retour au TIME / tap)
-    if (p.getDistanceFrom (cSync) < 28) { syncAtt->setValueAsCompleteGesture (syncParam ? 0.0f : 1.0f); return; }
-    if (p.getDistanceFrom (cPrev) < 18 || p.getDistanceFrom (cNext) < 18)
+    if (p.getDistanceFrom (layout::syncPos) < layout::syncR) { syncAtt->setValueAsCompleteGesture (syncParam ? 0.0f : 1.0f); return; }
+    if (p.getDistanceFrom (layout::triUp) < 16 || p.getDistanceFrom (layout::triDown) < 16)
     {
         const int n = EightEchoProcessor::kNumSlots, cur = proc.getCurrentSlot();
-        proc.loadSlot (p.getDistanceFrom (cPrev) < 18 ? (cur + n - 1) % n : (cur + 1) % n);
+        proc.loadSlot (p.getDistanceFrom (layout::triUp) < 16 ? (cur + n - 1) % n : (cur + 1) % n);
         repaint(); return;
     }
     if (int s = slotAt (p); s >= 0)
@@ -214,6 +421,7 @@ void PedalView::saveToSlot (int i)
 {
     proc.saveSlot (i);
     flashSlot = i; flashStart = anim;
+    showStatus (1500.0);
     repaint();
 }
 
@@ -239,17 +447,72 @@ void PedalView::mouseWheelMove (const MouseEvent& e, const MouseWheelDetails& w)
     }
 }
 
-void PedalView::askRepaint (Rectangle<int> r)
+void PedalView::askRepaint (Rectangle<float> r)
 {
     if (repaintAskedMs <= 0.0) repaintAskedMs = Time::getMillisecondCounterHiRes();
-    repaint (r);
+    repaint (r.getSmallestIntegerContainer().expanded (2));
 }
 
+// ----------------------------------------------------------------------------
+//  Textes de la pastille
+// ----------------------------------------------------------------------------
+String PedalView::presetLine() const
+{
+    const int slot = proc.getCurrentSlot();
+    return String (slot + 1) + fr (" \xc2\xb7 ") + proc.getCurrentName() + (proc.slotMatchesCurrent (slot) ? "" : " *");
+}
+
+String PedalView::buildStatus() const
+{
+    const double now = Time::getMillisecondCounterHiRes();
+    if (const int lt = proc.learnTarget.load(); lt >= 0)
+        return fr ("MIDI LEARN \xc2\xb7 ") + EightEchoProcessor::learnable (lt).name;
+    if (now < learnedUntil) return learnedText;
+    if (flashSlot >= 0) return fr ("SAUV\xc3\x89 EN M\xc3\x89MOIRE ") + String (flashSlot + 1);
+    if (slotPress >= 0 && ! slotSaved && now - slotPressTime > 250.0)
+        return fr ("MAINTENIR POUR SAUVER EN M\xc3\x89MOIRE ") + String (slotPress + 1);
+
+    auto& s = proc.apvts;
+    const int mode = (int) s.getRawParameterValue ("mode")->load();
+    auto pc = [&] (const char* id) { return String (roundToInt (s.getRawParameterValue (id)->load() * 100.0f)) + " %"; };
+    auto ms = [this] { return String (roundToInt (proc.effectiveDelayMs.load())) + " ms"; };
+    const char* loopSt[] = { "VIDE", "ENREGISTREMENT", "LECTURE", "OVERDUB", "" };
+    auto looper = [&]
+    {
+        const int st = jlimit (0, 4, proc.looperState.load());
+        return String ("LOOP ") + (st == 4 ? fr ("ARR\xc3\x8aT") : String (loopSt[st])) + "  " + String (proc.loopSeconds.load(), 1).replaceCharacter ('.', ',') + " s / 40 s";
+    };
+    switch (lastChanged)
+    {
+        case 0: return (mode == wiga::LOOP ? String ("VOLUME LOOP  ") : String ("E.LEVEL  ")) + pc ("elevel");
+        case 1: return "MIX  " + pc ("mix");
+        case 2: return (mode == wiga::GLT ? String ("DEPTH  ") : String ("FEEDBACK  ")) + pc ("feedback");
+        case 3: return "TIME  " + ms() + (proc.hostLocked.load() ? fr ("  \xc2\xb7  SYNC ") + String (roundToInt (proc.hostBpm.load())) + " BPM" : String());
+        case 4: return String ("MODE  ") + wiga::modeName (mode);
+        case 5: return longOn ? fr ("X2  ACTIV\xc3\x89") : fr ("X2  D\xc3\x89SACTIV\xc3\x89");
+        case 6: return ! syncParam ? fr ("SYNC  D\xc3\x89SACTIV\xc3\x89")
+                     : proc.hostLocked.load() ? "SYNC  " + String (roundToInt (proc.hostBpm.load())) + " BPM  " + fr ("\xc2\xb7  ") + ms()
+                                              : fr ("SYNC  \xc2\xb7  PAS DE TEMPO DU DAW");
+        case 7:
+        {
+            if (mode == wiga::LOOP) return looper();
+            const int ls = proc.ledState.load();
+            return (ls == EightEchoProcessor::LED_RED || ls == EightEchoProcessor::LED_REDGREEN_BLINK) ? String ("EFFET ACTIF") : String ("BYPASS");
+        }
+        case 8:
+            if (mode == wiga::LOOP) return looper();
+            if (proc.twistAmount.load() > 0.05f) return "TWIST";
+            return "TAP  " + ms();
+        case 9: return looper();
+        default: return {};
+    }
+}
+
+// ----------------------------------------------------------------------------
 void PedalView::timerCallback()
 {
     if (onTimerTick) onTimerTick();   // anti-gel Windows : l'editeur verifie le moteur de rendu et refait ses caches
 
-    // chien de garde (anti-gel v2) : un redessin demande n'arrive pas -> l'editeur relance le moteur de rendu
     const double nowMs = Time::getMillisecondCounterHiRes();
     if (repaintAskedMs > 0.0 && isShowing() && nowMs - repaintAskedMs > 1500.0 && lastPaintMs < repaintAskedMs)
     {
@@ -259,16 +522,18 @@ void PedalView::timerCallback()
     }
 
     anim += 1.0f / 30.0f;
-    // MIDI Learn termine (le processeur l'a note) : "<COMMANDE> = CC n" pendant 2 s
     if (const int learned = proc.lastLearned.exchange (-1); learned >= 0)
     {
         learnedText = String (EightEchoProcessor::learnable (learned).name) + " = CC " + String (proc.ccNum[learned].load());
-        learnedAt = anim;
+        learnedUntil = nowMs + 2000.0;
+        showStatus (2000.0);
     }
+    if (proc.learnTarget.load() >= 0) showStatus (300.0);
+
     // TAP maintenu : TWIST (et, en LOOP, maintien 2 s = effacer)
     if (pressed == TAPFS && ! twistSent)
     {
-        const double held = Time::getMillisecondCounterHiRes() - tapPressTime;
+        const double held = nowMs - tapPressTime;
         const bool loop = (int) proc.apvts.getRawParameterValue ("mode")->load() == wiga::LOOP;
         if ((! loop && held > 450.0) || (loop && held > 2000.0))
         {
@@ -276,98 +541,60 @@ void PedalView::timerCallback()
             twistSent = true;
         }
     }
-    // LED 1-7 maintenue 1 s : sauvegarde du reglage en cours dans cette memoire
-    if (slotPress >= 0 && ! slotSaved && Time::getMillisecondCounterHiRes() - slotPressTime > 1000.0)
-    {
-        saveToSlot (slotPress); slotSaved = true;
-    }
+    // memoire maintenue 1 s : sauvegarde du reglage en cours
+    if (slotPress >= 0 && ! slotSaved && nowMs - slotPressTime > 1000.0) { saveToSlot (slotPress); slotSaved = true; }
+    if (slotPress >= 0 && ! slotSaved && nowMs - slotPressTime > 250.0) showStatus (400.0);
     if (flashSlot >= 0 && anim - flashStart > 1.2f) flashSlot = -1;
 
-    // on ne redessine une zone que si ce qu'elle affiche a vraiment change (zero travail au repos).
-    // Les potards, le selecteur de mode, X2, SYNC on/off et les footswitchs redessinent deja
-    // eux-memes (attachements de parametres, clics souris).
-    auto changed = [] (float& drawn, float now) { if (std::abs (drawn - now) < 0.002f) return false; drawn = now; return true; };
-    auto zone = [this] (Rectangle<float> r) { askRepaint (r.getSmallestIntegerContainer().expanded (3)); };
-
-    // ligne d'etat : texte et fondu
-    const auto txt = statusLine();
-    if (txt != lastStatus) { lastStatus = txt; statusShownAt = anim; }   // une information a change
-    const bool alphaChanged = changed (drawnStatusAlpha, statusVisibility());
-    if (txt != drawnStatus || alphaChanged)
+    // quel reglage vient de bouger (souris, molette, automation, MIDI, tap, footswitch) : la ligne d'etat le montre
+    for (int i = 0; i < kNumWatch; ++i)
     {
-        drawnStatus = txt;
-        zone ({ 64.0f, 44.0f, 450.0f, 27.0f });
-    }
-
-    // LED des memoires 1 a 7
-    const int cur = proc.getCurrentSlot();
-    const bool dirty = ! proc.slotMatchesCurrent (cur);
-    for (int i = 0; i < EightEchoProcessor::kNumSlots; ++i)
-    {
-        if (changed (drawnLed[(size_t) i], ledBrightness (i, cur, dirty)))
+        const float v = proc.apvts.getRawParameterValue (kWatch[i])->load();
+        if (std::abs (v - lastVals[(size_t) i]) > 1.0e-4f)
         {
-            const float top = (i == 0 ? 95.0f : 0.5f * (slotY (i - 1) + slotY (i)));
-            const float bot = (i == EightEchoProcessor::kNumSlots - 1 ? 465.0f : 0.5f * (slotY (i) + slotY (i + 1)));
-            zone ({ 0.0f, top, (float) ledsOn.getWidth(), bot - top });
+            lastVals[(size_t) i] = v;
+            if (i == 7 || i == 8) { if (v > 0.5f) { lastChanged = i; showStatus(); } }   // appui seulement
+            else { lastChanged = i; showStatus(); }
         }
     }
-
-    // capuchon SYNC (respire au tempo)
-    if (changed (drawnSync, syncParam ? syncAlpha() : 0.0f))
-        zone ({ 139.0f, 426.0f, (float) syncOn.getWidth(), (float) syncOn.getHeight() });
-
-    // LED de tempo
-    if (changed (drawnTempo, tempoAmount()))
-        zone ({ 104.0f, 581.0f, (float) lensIce.getWidth(), (float) lensIce.getHeight() });
-
-    // LED CHECK
-    const auto argb = checkColour().getARGB();
-    if (argb != drawnCheck)
+    if (const int ls = proc.looperState.load(); ls != lastLooper)
     {
-        drawnCheck = argb;
-        const float w = (float) jmax (lensRed.getWidth(), lensGreen.getWidth(), lensOrange.getWidth());
-        const float h = (float) jmax (lensRed.getHeight(), lensGreen.getHeight(), lensOrange.getHeight());
-        zone ({ 394.0f, 580.0f, w, h });
+        lastLooper = ls;
+        if ((int) proc.apvts.getRawParameterValue ("mode")->load() == wiga::LOOP) { lastChanged = 9; showStatus(); }
     }
+    if (pressed != NONE || dragKnob >= 0) showStatus();
+    if (lastChanged == 9 && (proc.looperState.load() == 1 || proc.looperState.load() == 3)) showStatus();   // enregistrement : compteur en direct
+
+    // pastille : fondu croise (~120 ms a l'apparition, ~300 ms au retour de la barre de presets)
+    const float target = nowMs < statusUntil ? 1.0f : 0.0f;
+    statusAlpha += (target - statusAlpha) * (target > statusAlpha ? 0.45f : 0.25f);
+    if (statusAlpha < 0.005f) statusAlpha = 0.0f;
+    if (statusAlpha > 0.995f) statusAlpha = 1.0f;
+    statusText = statusAlpha > 0.0f || target > 0.0f ? buildStatus() : statusText;
+    presetText = presetLine();
+    if (std::abs (statusAlpha - drawnStatusAlpha) > 0.003f || (statusAlpha > 0.0f && statusText != drawnStatusText) || presetText != drawnPreset)
+    {
+        drawnStatusAlpha = statusAlpha; drawnStatusText = statusText; drawnPreset = presetText;
+        askRepaint (layout::statusRect.expanded (3.0f));
+    }
+
+    auto changed = [] (float& drawn, float now) { if (std::abs (drawn - now) < 0.002f) return false; drawn = now; return true; };
+
+    // tubes des memoires 1 a 7
+    const int cur = proc.getCurrentSlot();
+    for (int i = 0; i < EightEchoProcessor::kNumSlots; ++i)
+        if (changed (drawnLed[(size_t) i], ledBrightness (i, cur)))
+            askRepaint (layout::glowSlot[i].getUnion ({ layout::pipeOrigin[i].x, layout::pipeOrigin[i].y, layout::pipeW, layout::pipeH }));
+
+    if (changed (drawnSync, syncParam ? syncAlpha() : 0.0f)) askRepaint (layout::glow_sync);
+    if (changed (drawnTempo, tempoAmount())) askRepaint (layout::glow_tempo);
+    const auto argb = checkColour().getARGB();
+    if (argb != drawnCheck) { drawnCheck = argb; askRepaint (layout::glow_check_red); }
 }
 
 // ----------------------------------------------------------------------------
 //  Dessin
 // ----------------------------------------------------------------------------
-void PedalView::drawKnob (Graphics& g, const Knob& k)
-{
-    // le potard (moletage, reflet conique, ombre) est celui du visuel, fixe : l'eclairage ne tourne pas.
-    // Seul le repere blanc, decoupe sur l'image, tourne autour de l'axe du chapeau.
-    float angle;
-    if (k.isMode) angle = modeAngle (jlimit (0, wiga::kNumModes - 1, roundToInt (k.value)));   // crante sur chaque mode
-    else angle = degreesToRadians (-135.0f + 270.0f * k.value);
-    const size_t idx = (size_t) (&k - knobs.data());
-    const auto& img = pointers[jmin (idx, pointers.size() - 1)];
-    const float ax = img.getWidth() * 0.5f, ay = 52.0f;      // axe : 52 px sous le haut du repere
-    g.drawImageTransformed (img, AffineTransform::translation (-ax, -ay).rotated (angle).translated (k.c.x, k.c.y), false);
-}
-
-void PedalView::drawLedPipe (Graphics& g, int i, float b)
-{
-    // LED d'origine (tube + diffusion sur la plaque) superposee avec l'intensite voulue
-    if (b <= 0.01f) return;
-    const float top = (i == 0 ? 95.0f : 0.5f * (slotY (i - 1) + slotY (i)));
-    const float bot = (i == EightEchoProcessor::kNumSlots - 1 ? 465.0f : 0.5f * (slotY (i) + slotY (i + 1)));
-    const int sy = (int) top - 90, h = (int) (bot - top);
-    Graphics::ScopedSaveState ss (g);
-    g.setOpacity (jlimit (0.0f, 1.0f, b));
-    g.drawImage (ledsOn, 0, (int) top, ledsOn.getWidth(), h, 0, sy, ledsOn.getWidth(), h);
-}
-
-void PedalView::drawLens (Graphics& g, bool left, const Image* lit, float amount)
-{
-    if (lit == nullptr || amount <= 0.01f) return;
-    const Point<float> o = left ? Point<float> { 104.0f, 581.0f } : Point<float> { 394.0f, 580.0f };
-    Graphics::ScopedSaveState ss (g);
-    g.setOpacity (jlimit (0.0f, 1.0f, amount));
-    g.drawImageAt (*lit, (int) o.x, (int) o.y);
-}
-
 Colour PedalView::checkColour() const
 {
     const bool on = std::fmod (anim * 2.5f, 1.0f) < 0.5f;
@@ -385,7 +612,7 @@ Colour PedalView::checkColour() const
     }
 }
 
-float PedalView::ledBrightness (int i, int cur, bool dirty) const
+float PedalView::ledBrightness (int i, int cur) const
 {
     float b = 0.0f;
     if (i == flashSlot) b = std::fmod ((anim - flashStart) * 5.0f, 1.0f) < 0.5f ? 1.0f : 0.15f;   // confirmation
@@ -394,14 +621,11 @@ float PedalView::ledBrightness (int i, int cur, bool dirty) const
         const float held = (float) ((Time::getMillisecondCounterHiRes() - slotPressTime) / 1000.0);
         b = held > 0.25f ? 0.3f + 0.7f * jlimit (0.0f, 1.0f, (held - 0.25f) / 0.75f) * (0.6f + 0.4f * std::sin (anim * 14.0f)) : 1.0f;
     }
-    else if (i == cur) b = dirty ? 0.45f + 0.15f * std::sin (anim * 3.0f) : 1.0f;   // memoire modifiee : LED adoucie
+    else if (i == cur) b = proc.slotMatchesCurrent (cur) ? 1.0f : 0.45f + 0.15f * std::sin (anim * 3.0f);   // memoire modifiee : adoucie
     return b;
 }
 
-float PedalView::beatFlash() const
-{
-    return jlimit (0.0f, 1.0f, 1.0f - proc.tapBlinkPhase.load() * 4.0f);
-}
+float PedalView::beatFlash() const { return jlimit (0.0f, 1.0f, 1.0f - proc.tapBlinkPhase.load() * 4.0f); }
 
 float PedalView::syncAlpha() const
 {
@@ -411,189 +635,216 @@ float PedalView::syncAlpha() const
 
 float PedalView::tempoAmount() const
 {
-    // la LED de tempo bat les temps ; le premier temps de la mesure (DAW) / du tap est plus fort
     const bool twisting = proc.twistAmount.load() > 0.05f;
     const bool accent = proc.tapAccent.load();
     const float peak = (! accent || proc.tapBeat.load() == 0) ? 1.0f : 0.55f;
-    return twisting ? (std::fmod (anim * 12.0f, 1.0f) < 0.5f ? 1.0f : 0.15f)
-                    : peak * beatFlash();                                     // eclair puis extinction douce
+    return twisting ? (std::fmod (anim * 12.0f, 1.0f) < 0.5f ? 1.0f : 0.15f) : peak * beatFlash();
 }
 
-float PedalView::statusVisibility() const
+void PedalView::drawKnobPointer (Graphics& g, const Knob& k)
 {
-    if (proc.learnTarget.load() >= 0) return 1.0f;                           // MIDI Learn : reste affiche
-    const float age = anim - statusShownAt;
-    return age < 1.8f ? jlimit (0.0f, 1.0f, age / 0.08f)                      // apparition rapide
-                      : jlimit (0.0f, 1.0f, 1.0f - (age - 1.8f) / 0.6f);      // puis fondu
+    // potard photo (dans le fond, reflets fixes) : seul le repere blanc tourne
+    const float a = k.isMode ? modeAngle (jlimit (0, wiga::kNumModes - 1, roundToInt (k.value)))
+                             : degreesToRadians (-135.0f + 270.0f * k.value);
+    const float R = k.r;
+    const Point<float> dir (std::sin (a), -std::cos (a));
+    Path line; line.startNewSubPath (k.c + dir * (0.42f * R)); line.lineTo (k.c + dir * (0.88f * R));
+    const float lw = 0.062f * R;
+    g.setColour (Colours::black.withAlpha (0.43f));
+    g.strokePath (line, PathStrokeType (lw * 1.15f, PathStrokeType::mitered, PathStrokeType::butt), AffineTransform::translation (0.5f, 0.7f));
+    g.setColour (Colour (0xffecf0f3));
+    g.strokePath (line, PathStrokeType (lw, PathStrokeType::mitered, PathStrokeType::butt));
 }
 
-String PedalView::statusLine() const
+static void drawAt (Graphics& g, const Image& img, Rectangle<float> r, float opacity)
 {
-    // MIDI Learn : attente d'un CC, puis confirmation 2 s
-    if (const int lt = proc.learnTarget.load(); lt >= 0)
-        return "MIDI LEARN: move a control for " + String (EightEchoProcessor::learnable (lt).name);
-    if (anim - learnedAt < 2.0f) return learnedText;
+    if (! img.isValid() || opacity <= 0.003f) return;
+    g.setOpacity (jlimit (0.0f, 1.0f, opacity));
+    g.drawImage (img, r);
+    g.setOpacity (1.0f);
+}
 
-    auto& s = proc.apvts;
-    const int mode = (int) s.getRawParameterValue ("mode")->load();
-    auto pc = [&] (const char* id) { return String (roundToInt (s.getRawParameterValue (id)->load() * 100.0f)); };
-    const int slot = proc.getCurrentSlot();
-    String t = "P" + String (slot + 1) + (proc.slotMatchesCurrent (slot) ? " " : "*");
-    if (flashSlot >= 0) return "SAVED TO MEMORY " + String (flashSlot + 1);
-    if (slotPress >= 0 && ! slotSaved && Time::getMillisecondCounterHiRes() - slotPressTime > 250.0)
-        return "HOLD TO SAVE IN MEMORY " + String (slotPress + 1) + "...";
-    if (mode == wiga::LOOP)
+static Rectangle<float> sq (Point<float> c, float s) { return { c.x - s * 0.5f, c.y - s * 0.5f, s, s }; }
+
+// Pastille unique (regle NINE HANDS | DSP) : barre de presets au repos ; des qu'un reglage bouge, la ligne d'etat
+// prend sa place en fondu croise (meme pastille, meme police Poppins Medium 23), puis s'efface ~2,5 s apres.
+void PedalView::drawPill (Graphics& g)
+{
+    const auto r = layout::statusRect;
+    const float rad = r.getHeight() * 0.5f;
+    const float a = statusAlpha, pa = 1.0f - a;
+    g.setColour (kPanel.withAlpha (0.92f));
+    g.fillRoundedRectangle (r, rad);
+    g.setColour (kIce.withAlpha (hoverZone != 0 && pa > 0.5f ? 0.65f : 0.45f));
+    g.drawRoundedRectangle (r.reduced (0.75f), rad - 0.75f, 1.5f);
+
+    const Font f (FontOptions (popMed).withPointHeight (23.0f));
+    const float aw = 34.0f;
+    if (pa > 0.0f)
     {
-        const char* st[] = { "EMPTY", "REC", "PLAY", "OVERDUB", "STOP" };
-        return t + " LOOP " + st[jlimit (0, 4, proc.looperState.load())] + " " + String (proc.loopSeconds.load(), 1) + "s/40s VOL " + pc ("elevel");
+        auto arrow = [&] (bool left, bool hot)
+        {
+            const float cx = left ? r.getX() + aw * 0.5f + 3.0f : r.getRight() - aw * 0.5f - 3.0f, cy = r.getCentreY(), t = 5.5f;
+            Path p;
+            if (left) p.addTriangle (cx + t * 0.8f, cy - t, cx + t * 0.8f, cy + t, cx - t * 0.8f, cy);
+            else      p.addTriangle (cx - t * 0.8f, cy - t, cx - t * 0.8f, cy + t, cx + t * 0.8f, cy);
+            g.setColour (Colours::white.withAlpha ((hot ? 1.0f : 0.6f) * pa));
+            g.fillPath (p);
+        };
+        arrow (true, hoverZone == 1);
+        arrow (false, hoverZone == 3);
+        // numero de memoire (bleu glace) · nom du preset (blanc), reduit au plus a 60 % puis tronque
+        const int slot = proc.getCurrentSlot();
+        const String num (slot + 1), sep (fr ("  \xc2\xb7  ")), name = presetText.fromFirstOccurrenceOf (fr (" \xc2\xb7 "), false, false);
+        const float avail = r.getWidth() - 2.0f * aw;
+        float k = 1.0f;
+        auto width = [&] (float kk)
+        {
+            const Font ff = f.withHeight (f.getHeight() * kk);
+            return GlyphArrangement::getStringWidth (ff, num) + GlyphArrangement::getStringWidth (ff, sep) + GlyphArrangement::getStringWidth (ff, name);
+        };
+        while (k > 0.6f && width (k) > avail) k -= 0.02f;
+        const Font ff = f.withHeight (f.getHeight() * k);
+        const float wn = GlyphArrangement::getStringWidth (ff, num), ws = GlyphArrangement::getStringWidth (ff, sep);
+        const float wt = jmin (GlyphArrangement::getStringWidth (ff, name), avail - wn - ws);
+        float x = r.getCentreX() - (wn + ws + wt) * 0.5f;
+        g.setFont (ff);
+        g.setColour (kIce.withAlpha (pa));
+        g.drawText (num, Rectangle<float> (x, r.getY(), wn + 1.0f, r.getHeight()), Justification::centredLeft, false); x += wn;
+        g.setColour (Colour (0xff96a0aa).withAlpha (pa));
+        g.drawText (sep, Rectangle<float> (x, r.getY(), ws + 1.0f, r.getHeight()), Justification::centredLeft, false); x += ws;
+        g.setColour (kSilk.withAlpha ((hoverZone == 2 ? 1.0f : 0.94f) * pa));
+        g.drawText (name, Rectangle<float> (x, r.getY(), wt + 1.0f, r.getHeight()), Justification::centredLeft, true);
     }
-    t << " " << wiga::modeName (mode) << " " << String (roundToInt (proc.effectiveDelayMs.load())) << "ms";
-    t << " LV" << pc ("elevel") << (mode == wiga::GLT ? " DP" : " FB") << pc ("feedback") << " MX" << pc ("mix");
-    if (proc.hostLocked.load()) t << " SYNC" << String (roundToInt (proc.hostBpm.load()));
-    else if (syncParam) t << " SYNC?";                                // SYNC demande mais pas de tempo du DAW
-    if (proc.tapModeActive.load()) t << " TAP";
-    if (proc.twistAmount.load() > 0.05f) t << " TWIST";
-    if (proc.glitching.load()) t << " GLT";
-    if (proc.warpAmount.load() > 0.05f) t << " WARP";
-    if (proc.looperState.load() == 2 || proc.looperState.load() == 3) t << " +LOOP";   // boucle qui tourne sous l'effet
-    return t;
+    if (a > 0.0f)
+    {
+        g.setFont (f);
+        g.setColour (kSilk.withAlpha (a));
+        g.drawFittedText (statusText, r.reduced (rad, 0.0f).toNearestInt(), Justification::centred, 1, 0.6f);
+    }
 }
 
 void PedalView::paint (Graphics& g)
 {
     lastPaintMs = Time::getMillisecondCounterHiRes();
     repaintAskedMs = 0.0;
-    g.drawImage (bg, Rectangle<float> (0, 0, imgW, imgH));
+    const Rectangle<float> frame (0.0f, 0.0f, imgW, imgH);
 
-    // ligne d etat en haut de la plaque
+    // fond (cache a la resolution de l'ecran, ou image d'origine en attendant le timer)
+    g.setImageResamplingQuality (bgCache.isValid() ? Graphics::lowResamplingQuality : Graphics::mediumResamplingQuality);
+    g.drawImage (bgCache.isValid() ? bgCache : bg, frame);
+    g.setImageResamplingQuality (Graphics::mediumResamplingQuality);
+
+    // lumieres sur la facade (sous la serigraphie)
+    const int cur = proc.getCurrentSlot();
+    float led[7];
+    for (int i = 0; i < 7; ++i) { led[i] = ledBrightness (i, cur); drawAt (g, glowSlot[(size_t) i], layout::glowSlot[i], led[i]); }
+    const float tempo = tempoAmount();
+    drawAt (g, glowTempo, layout::glow_tempo, tempo);
+    const auto cc = checkColour();
+    const bool green = cc == Colour (0xff3dff7a), orange = cc == Colour (0xffffa424);
+    if (! cc.isTransparent()) drawAt (g, green ? glowGreen : orange ? glowOrange : glowRed, layout::glow_check_red, 1.0f);
+    const float sa = syncParam ? syncAlpha() : 0.0f;
+    drawAt (g, glowSync, layout::glow_sync, sa);
+    if (longOn) drawAt (g, glowX2, layout::glow_x2, 1.0f);
+
+    // serigraphie (cache) ; en attendant le cache, les inscriptions seules
+    g.setImageResamplingQuality (Graphics::lowResamplingQuality);
+    if (printCache.isValid()) g.drawImage (printCache, frame);
+    else { g.setColour (kSilk); g.fillPath (printPath); g.fillPath (x2Path); }
+    g.setImageResamplingQuality (Graphics::mediumResamplingQuality);
+    if (longOn) { g.setColour (kX2Lit); g.fillPath (x2Path); }
+
+    // noms des modes autour du potard MODE (le mode choisi en bleu)
     {
-        const auto txt = statusLine();
-        const Rectangle<int> sr (64, 44, 450, 26);
-        if (txt != lastStatus) { lastStatus = txt; statusShownAt = anim; }   // une information a change
-        const float vis = statusVisibility();
-        if (vis > 0.01f)
+        const int modeIdx = jlimit (0, wiga::kNumModes - 1, roundToInt (knobs[4].value));
+        g.setFont (FontOptions (sansFace).withPointHeight (layout::modeFont));
+        for (int i = 0; i < wiga::kNumModes; ++i)
         {
-            g.setFont (FontOptions (Font::getDefaultMonospacedFontName(), 17.5f, Font::bold));
-            g.setColour (Colours::black.withAlpha (0.45f * vis));             // ombre : lisible comme une serigraphie
-            g.drawFittedText (txt, sr.translated (0, 1), Justification::centred, 1, 0.85f);
-            g.setColour (kSilk.withAlpha (0.92f * vis));
-            g.drawFittedText (txt, sr, Justification::centred, 1, 0.85f);
+            Justification just (Justification::centred);
+            const auto rr = modeLabelRect (i, just);
+            g.setColour (i == modeIdx ? kModeSel : kSilk);
+            g.drawText (wiga::modeName (i), rr, just, false);
         }
     }
 
-    // etiquettes du selecteur de mode (comme la serigraphie DD-8)
-    const int modeIdx = jlimit (0, wiga::kNumModes - 1, roundToInt (knobs[4].value));
-    g.setFont (FontOptions (11.5f, Font::bold));
-    for (int i = 0; i < wiga::kNumModes; ++i)
+    // footswitches (au-dessus du motif) ; enfonce : bouton assombri
+    for (auto c : { layout::fsTap, layout::fsBypass }) g.drawImage (footswitch, sq (c, layout::fsS));
+    if (pressed != NONE)
     {
-        Justification just (Justification::centred);
-        auto r = modeLabelRect (i, just);
-        const bool sel = i == modeIdx;
-        auto t1 = knobs[4].c.getPointOnCircumference (knobs[4].r + 2.0f, modeAngle (i)), t2 = knobs[4].c.getPointOnCircumference (knobs[4].r + 6.5f, modeAngle (i));
-        g.setColour (sel ? kIce : kSilk.withAlpha (0.65f)); g.drawLine ({ t1, t2 }, 1.6f);
-        if (sel) { g.setColour (kIce.withAlpha (0.25f)); g.drawText (wiga::modeName (i), r.translated (0, 0.8f), just); }
-        g.setColour (sel ? kIce : kSilk.withAlpha (0.82f));
-        g.drawText (wiga::modeName (i), r, just);
+        const auto c = pressed == TAPFS ? layout::fsTap : layout::fsBypass;
+        const float r = layout::footR * 0.98f;
+        g.setColour (Colours::black.withAlpha (0.25f));
+        g.fillEllipse (c.x - r, c.y - r, r * 2.0f, r * 2.0f);
     }
 
-    for (auto& k : knobs) drawKnob (g, k);
+    // LED, tubes, SYNC
+    drawAt (g, ledIce, sq (layout::ledTempo, layout::ledS), tempo);
+    if (! cc.isTransparent()) drawAt (g, green ? ledGreen : orange ? ledOrange : ledRed, sq (layout::ledCheck, layout::ledS), 1.0f);
+    for (int i = 0; i < 7; ++i) drawAt (g, pipeOn, { layout::pipeOrigin[i].x, layout::pipeOrigin[i].y, layout::pipeW, layout::pipeH }, led[i]);
+    drawAt (g, syncOn, sq (layout::syncPos, layout::syncS), sa);
 
-    // LED des memoires 1 a 7
-    const int cur = proc.getCurrentSlot();
-    const bool dirty = ! proc.slotMatchesCurrent (cur);
-    for (int i = 0; i < EightEchoProcessor::kNumSlots; ++i)
-        drawLedPipe (g, i, ledBrightness (i, cur, dirty));
-
-    // bouton SYNC : le capuchon depoli s'eclaire en bleu glace quand le delay suit le tempo du DAW
-    if (syncParam)
-    {
-        Graphics::ScopedSaveState ss (g);
-        g.setOpacity (syncAlpha());
-        g.drawImageAt (syncOn, 139, 426);
-    }
-
-    // LED de tempo (au-dessus de TAP) et LED CHECK (au-dessus de BYPASS) : lentilles d'origine allumees
-    // la LED de tempo bat les temps ; le premier temps de la mesure (DAW) / du tap est plus fort
-    drawLens (g, true, &lensIce, tempoAmount());
-    const auto cc = checkColour();
-    if (! cc.isTransparent())
-    {
-        const Image* img = cc == Colour (0xff3dff7a) ? &lensGreen : cc == Colour (0xffffa424) ? &lensOrange : &lensRed;
-        drawLens (g, false, img, 1.0f);
-    }
-
-    // X2 (temps double) : la serigraphie X2 s'illumine (meme forme, meme taille)
-    if (longOn) g.drawImageAt (x2On, 220, 727);
-
-    // footswitches enfonces
-    auto pressFs = [&g] (Point<float> c)
-    {
-        g.setColour (Colours::black.withAlpha (0.28f)); g.fillEllipse (c.x - 36, c.y - 36, 72, 72);
-        g.setColour (Colours::white.withAlpha (0.10f)); g.drawEllipse (c.x - 33, c.y - 31, 66, 66, 2.0f);
-    };
-    if (pressed == TAPFS) pressFs (cTap);
-    if (pressed == BYPASSFS) pressFs (cBypass);
-
-    // NINE HANDS | DSP entre les deux footswitchs, en bas
-    // logo NINE HANDS | DSP : integre a la plaque dans background.png (toujours fixe)
-
+    for (auto& k : knobs) drawKnobPointer (g, k);
+    drawPill (g);
 }
 
 // =============================================================================
 EightEchoEditor::EightEchoEditor (EightEchoProcessor& p) : AudioProcessorEditor (&p), proc (p), pedal (p)
 {
+    popReg  = Typeface::createSystemTypefaceFor (BinaryData::PoppinsRegular_ttf, BinaryData::PoppinsRegular_ttfSize);
+    popMed  = Typeface::createSystemTypefaceFor (BinaryData::PoppinsMedium_ttf, BinaryData::PoppinsMedium_ttfSize);
+    popBold = Typeface::createSystemTypefaceFor (BinaryData::PoppinsBold_ttf, BinaryData::PoppinsBold_ttfSize);
+    menuLnf.f = { popReg, popMed, popBold };
+    setLookAndFeel (&menuLnf);
+
     addAndMakeVisible (pedal);
     pedal.onBackgroundRightClick = [this] (const MouseEvent& e) { showMenu (pedal.learnIndexAt (e.position)); };
-    // le timer de l'interface est celui de la pedale : a chaque tic on verifie le moteur de rendu,
-    // au cas ou la fenetre a ete recreee par l'hote (changement d'ecran, d'echelle...)
+    pedal.onPresetMenu = [this] { showPresetMenu(); };
     pedal.onTimerTick = [this] { tick(); };
     pedal.onRepaintStuck = [this] { lastPeer = nullptr; useSoftwareRenderer(); repaint(); };
 
-    // l'ordre compte : setResizable() d'abord (il cree le coin de redimensionnement),
-    // puis notre contrainte stricte, pour que le coin ET l'hote l'utilisent
+    // l'ordre compte : setResizable() d'abord, puis la contrainte stricte (coin ET hote l'utilisent)
     setResizable (true, true);
-    constrainer.setMinimumSize (baseW, baseH);
-    constrainer.setMaximumSize (refW, refH);
-    constrainer.setFixedAspectRatio ((double) baseW / (double) baseH);
+    const int defW = roundToInt ((float) defaultH * layout::frameW / layout::frameH);
+    constrainer.setMinimumSize (defW, defaultH);
+    constrainer.setMaximumSize (roundToInt ((float) maxH * layout::frameW / layout::frameH), maxH);
+    constrainer.setFixedAspectRatio ((double) layout::frameW / (double) layout::frameH);
     constrainer.setMinimumOnscreenAmounts (0x10000, 0x10000, 0x10000, 0x10000);
     setConstrainer (&constrainer);
-    // taille a l'ouverture : celle sauvegardee avec le projet pour cette instance si elle existe,
-    // sinon celle choisie dans le menu « Default size (new windows) » (commune a toutes les nouvelles fenetres)
-    const float saved = proc.uiScale.load();
-    const float sc = jlimit (1.0f, maxScale, saved > 0.0f ? saved : sizeScale (WigaWindowSize::defaultIndex (JucePlugin_Name, numSizes)));
-    if (saved <= 0.0f) openScale = sc;     // pas de taille propre a l'instance tant qu'on ne la change pas
     setOpaque (true);                      // anti-gel : l'hote ne redessine jamais ce qui est derriere la fenetre
-    setSize (roundToInt (baseW * sc), roundToInt (baseH * sc));
+    // taille : celle du projet pour cette instance si elle existe, sinon celle choisie dans « Default size (new windows) »
+    const float saved = proc.uiScale.load();
+    sizeFromProject = saved > 0.0f;
+    const int h = saved > 0.0f ? roundToInt (saved * (float) defaultH) : sizeHeight (WigaWindowSize::defaultIndex (JucePlugin_Name, numSizes));
+    setScaledHeight (h);
     rebuildCaches();
 }
 
-float EightEchoEditor::sizeScale (int idx)
+EightEchoEditor::~EightEchoEditor()
 {
-    // 60 % = taille par defaut d'origine (390 x 494) ; 75 % / 100 % de 2000 px de haut
-    const float sc[numSizes] = { 1.0f, 0.75f * maxScale, maxScale };
-    return sc[jlimit (0, numSizes - 1, idx)];
+    PopupMenu::dismissAllActiveMenus();
+    setLookAndFeel (nullptr);
 }
 
-void EightEchoEditor::setScale (float s)
+int EightEchoEditor::sizeHeight (int idx)
 {
-    openScale = -1.0f;                     // taille choisie : retenue avec le projet
-    s = jlimit (1.0f, maxScale, s); proc.uiScale = s;
-    setSize (roundToInt (baseW * s), roundToInt (baseH * s));
+    const int h[numSizes] = { defaultH, roundToInt (refH * 0.75f), refH };
+    return h[jlimit (0, numSizes - 1, idx)];
+}
+
+void EightEchoEditor::setScaledHeight (int h)
+{
+    h = jlimit (defaultH, maxH, h);
+    setSize (roundToInt ((float) h * layout::frameW / layout::frameH), h);
 }
 
 //==============================================================================
-// Anti-gel de la fenetre (Windows) : JUCE 8 dessine par defaut avec Direct2D (carte graphique).
-// Avec certains pilotes (Intel notamment) la fenetre du plugin cesse de se rafraichir alors que
-// le DAW continue de tourner. Le moteur logiciel est stable partout et largement assez rapide ici.
-//
 // Anti-gel v2 (NINE HANDS | DSP) :
 //  1. moteur de rendu logiciel force sur Windows, applique a chaque nouvelle fenetre hote (peer)
 //     et reverifie toutes les secondes, jamais en boucle ;
-//  2. aucun calcul lourd dans paint() : le fond de la fenetre (degrade, motifs, ombre) est mis en cache
-//     par le timer seulement, apres stabilisation de la taille ou quand l'echelle d'affichage change
-//     (au plus toutes les 250 ms) ;
-//  3. chien de garde : si un redessin demande n'est pas arrive au bout de 1,5 s alors que la fenetre est
-//     visible, le moteur de rendu est reapplique et toute la fenetre est redessinee ;
+//  2. aucun calcul lourd dans paint() : fond et serigraphie mis en cache par le timer seulement,
+//     apres stabilisation de la taille ou quand l'echelle d'affichage change (au plus toutes les 250 ms) ;
+//  3. chien de garde : redessin demande non servi en 1,5 s -> moteur de rendu reapplique, tout redessine ;
 //  4. cote audio : aucun appel a l'hote depuis le thread audio (voir PluginProcessor).
 void EightEchoEditor::useSoftwareRenderer()
 {
@@ -604,153 +855,89 @@ void EightEchoEditor::useSoftwareRenderer()
     {
         int sw = peer->getAvailableRenderingEngines().indexOf ("Software Renderer");
         if (sw < 0) sw = 0;
-        if (peer->getCurrentRenderingEngine() != sw)
-            peer->setCurrentRenderingEngine (sw);
+        if (peer->getCurrentRenderingEngine() != sw) peer->setCurrentRenderingEngine (sw);
     }
    #endif
 }
 
-void EightEchoEditor::parentHierarchyChanged()
-{
-    useSoftwareRenderer();
-}
-
-void EightEchoEditor::visibilityChanged()
-{
-    useSoftwareRenderer();
-    if (isShowing())
-        repaint();
-}
+void EightEchoEditor::parentHierarchyChanged() { useSoftwareRenderer(); }
+void EightEchoEditor::visibilityChanged()      { useSoftwareRenderer(); if (isShowing()) repaint(); }
 
 float EightEchoEditor::physicalScale() const
 {
+    if (forcedScale > 0.0f) return forcedScale;
     return jlimit (1.0f, 4.0f, (float) Component::getApproximateScaleFactorForComponent (this));
 }
 
 void EightEchoEditor::tick()
 {
     const double now = Time::getMillisecondCounterHiRes();
-    // au cas ou la fenetre a ete recreee par l'hote (changement d'ecran, d'echelle...) : au plus 1 fois par seconde
     if (getPeer() != lastPeer || now - lastRendererCheckMs > 1000.0) { lastRendererCheckMs = now; useSoftwareRenderer(); }
-
-    // caches : reconstruits ici seulement (jamais dans paint)
-    if (resizeSettle > 0 && --resizeSettle == 0)
-        rebuildCaches();
+    if (resizeSettle > 0 && --resizeSettle == 0) rebuildCaches();
     else if (resizeSettle == 0 && now - lastScaleCheckMs > 250.0)
     {
         lastScaleCheckMs = now;
         const float sc = physicalScale();
-        if (std::abs (sc - cacheScale) > 0.01f)
-            rebuildCaches (sc);
+        if (std::abs (sc - cacheScale) > 0.01f) rebuildCaches (sc);
     }
 }
 
 void EightEchoEditor::rebuildCaches (float sc)
 {
-    if (sc <= 0.0f)
-        sc = cacheScale > 0.0f ? cacheScale : physicalScale();
-    const int w = getWidth(), h = getHeight();
-    if (w <= 0 || h <= 0)
-        return;
-    if (w == cacheW && h == cacheH && std::abs (sc - cacheScale) < 0.01f && bgCache.isValid())
-        return;
-
-    cacheW = w; cacheH = h; cacheScale = sc;
-    const int pw = roundToInt ((float) w * sc), ph = roundToInt ((float) h * sc);
-    Image img (Image::RGB, pw, ph, true);
-    {
-        Graphics cg (img);
-        cg.addTransform (AffineTransform::scale ((float) pw / (float) w, (float) ph / (float) h));
-        drawBackdrop (cg);
-    }
-    bgCache = img;
-    repaint();
+    if (sc <= 0.0f) sc = cacheScale > 0.0f ? cacheScale : physicalScale();
+    if (getHeight() <= 0) return;
+    cacheScale = sc; cacheH = getHeight();
+    pedal.rebuildCaches ((float) getHeight() / layout::frameH * sc);
 }
 
 void EightEchoEditor::resized()
 {
-    // anti-gel : jamais de setSize ici (mise a l'echelle Windows 125 / 150 % : tolerance de quelques px) ;
-    // la contrainte stricte (StrictMinConstrainer) suffit a garder la taille minimale
-    const float s = jmin ((float) getWidth() / (float) baseW, (float) getHeight() / (float) baseH);
-    if (openScale > 0.0f && std::abs (s - openScale) < 0.02f)
-        proc.uiScale = -1.0f;              // toujours a la taille par defaut choisie : rien de propre a l'instance
-    else
-    {
-        openScale = -1.0f;
-        proc.uiScale = s;                  // taille retenue avec le projet
-    }
-    const auto a = pedalArea();
-    const float ps = a.getHeight() / PedalView::imgH;
-    pedal.setBounds (0, 0, (int) PedalView::imgW, (int) PedalView::imgH);
-    pedal.setTransform (AffineTransform::scale (ps).translated (a.getX(), a.getY()).scaled (s));
-    resizeSettle = 4;      // le cache du fond sera refait quand la taille sera stable
-}
-
-Rectangle<float> EightEchoEditor::pedalArea() const
-{
-    // comme Freeze Shimmer : boitier (y 18..886 de l'image) haut de 465 px, son haut a 14 px, centre en largeur
-    const float ps = 465.0f / (886.0f - 18.0f);
-    const float w = PedalView::imgW * ps, h = PedalView::imgH * ps;
-    return { (float) baseW * 0.5f - 289.0f * ps, 14.0f - 18.0f * ps, w, h };
-}
-
-// Motif de la pedale : deux groupes d'anneaux concentriques + le "8" entrelace central
-static void drawPedalMotif (Graphics& g, Point<float> c, float sc, float alpha)
-{
-    g.setColour (Colour (0xffa9c2d6).withAlpha (alpha));
-    auto rings = [&] (Point<float> o, float r0, float r1, float step)
-    {
-        for (float r = r0; r <= r1; r += step)
-            g.drawEllipse (c.x + (o.x - r) * sc, c.y + (o.y - r) * sc, 2 * r * sc, 2 * r * sc, 2.2f * sc);
-    };
-    rings ({ -148, -3 }, 64, 110, 9.0f);
-    rings ({  148, -3 }, 64, 110, 9.0f);
-    rings ({  -62,  5 }, 28, 92, 9.0f);
-    rings ({   62,  5 }, 28, 92, 9.0f);
+    // anti-gel : jamais de setSize ici ; la contrainte stricte garde la taille minimale et les proportions
+    const float s = (float) getHeight() / layout::frameH;
+    pedal.setBounds (0, 0, (int) std::ceil (layout::frameW), (int) layout::frameH);
+    pedal.setTransform (AffineTransform::scale (s));
+    const int defH = sizeHeight (WigaWindowSize::defaultIndex (JucePlugin_Name, numSizes));
+    if (! sizeFromProject && std::abs (getHeight() - defH) <= 2) proc.uiScale = -1.0f;   // taille par defaut : rien de propre a l'instance
+    else proc.uiScale = (float) getHeight() / (float) defaultH;
+    sizeFromProject = false;
+    resizeSettle = 4;      // les caches seront refaits quand la taille sera stable
 }
 
 void EightEchoEditor::paint (Graphics& g)
 {
-    g.fillAll (Colours::black);
-    // anti-gel : aucun dessin lourd ici, on dessine le cache existant (refait par le timer)
-    if (bgCache.isValid())
+    g.fillAll (Colour (0xff111112));     // autour des jacks : le fond de l'image est transparent
+}
+
+// ----------------------------------------------------------------------------
+//  Menus (design d'Octopus, ouverts la ou l'on clique)
+// ----------------------------------------------------------------------------
+void EightEchoEditor::showPresetMenu()
+{
+    PopupMenu m;
+    m.setLookAndFeel (&menuLnf);
+    NineHandsMenu::addHeader (m, menuLnf.f, NineHandsMenu::icoPreset, kMenuAccent, "Presets", pedal.presetLine());
+    m.addSectionHeader ("Factory presets > memory " + String (proc.getCurrentSlot() + 1));
+    for (int i = 0; i < proc.getNumPrograms(); ++i)
+        m.addItem (100 + i, proc.getProgramName (i), true, proc.getCurrentProgram() == i && proc.getCurrentName() == proc.getProgramName (i));
+    m.addSeparator();
+    PopupMenu load, save;
+    for (int i = 0; i < EightEchoProcessor::kNumSlots; ++i)
     {
-        g.setImageResamplingQuality (Graphics::lowResamplingQuality);
-        g.drawImage (bgCache, getLocalBounds().toFloat());
+        load.addItem (600 + i, "Memory " + String (i + 1) + "  " + proc.getSlotName (i), true, proc.getCurrentSlot() == i);
+        save.addItem (700 + i, "Memory " + String (i + 1) + "  (overwrite " + proc.getSlotName (i) + ")");
     }
-}
-
-void EightEchoEditor::drawBackdrop (Graphics& g) const
-{
-    // fond noir, eclairage doux derriere la pedale, motifs d'anneaux de la pedale en transparence
-    const float s = currentScale();
-    g.addTransform (AffineTransform::scale (s));
-    const float W = (float) baseW, H = (float) baseH;
-    g.setGradientFill (ColourGradient (Colour (0xff1b1f25), W * 0.5f, H * 0.42f, Colour (0xff060708), W * 0.5f + W * 0.62f, H * 0.42f, true));
-    g.fillRect (0.0f, 0.0f, W, H);
-    const float cx = W * 0.5f, k = 0.62f;
-    drawPedalMotif (g, { cx, 470.0f }, k, 0.22f);
-    drawPedalMotif (g, { cx, 22.0f }, k, 0.22f);
-    drawPedalMotif (g, { 30.0f, 246.0f }, k * 0.8f, 0.18f);
-    drawPedalMotif (g, { W - 30.0f, 246.0f }, k * 0.8f, 0.18f);
-    drawPedalMotif (g, { 24.0f, 110.0f }, k * 0.55f, 0.15f);
-    drawPedalMotif (g, { W - 24.0f, 382.0f }, k * 0.55f, 0.15f);
-    drawPedalMotif (g, { 24.0f, 400.0f }, k * 0.45f, 0.13f);
-    drawPedalMotif (g, { W - 24.0f, 96.0f }, k * 0.45f, 0.13f);
-
-    // vignettage leger des bords
-    g.setGradientFill (ColourGradient (Colours::transparentBlack, cx, H * 0.5f, Colours::black.withAlpha (0.35f), 0.0f, 0.0f, true));
-    g.fillRect (0.0f, 0.0f, W, H);
-    // ombre portee sous la pedale (boitier arrondi)
-    const auto a = pedalArea();
-    const auto body = a.reduced (a.getWidth() * 0.035f, a.getHeight() * 0.02f);
-    Path p; p.addRoundedRectangle (body, a.getWidth() * 0.06f);
-    DropShadow (Colours::black.withAlpha (0.75f), 22, { 0, 9 }).drawForPath (g, p);
-}
-
-void EightEchoEditor::mouseDown (const MouseEvent& e)
-{
-    if (e.mods.isPopupMenu()) showMenu();
+    m.addSubMenu ("Load memory", load);
+    m.addSubMenu ("Save current settings to memory", save);
+    const auto bar = localAreaToGlobal (layout::statusRect.transformedBy (pedal.getTransform()).toNearestInt());
+    m.showMenuAsync (PopupMenu::Options().withTargetScreenArea (bar),
+        [safe = Component::SafePointer<EightEchoEditor> (this)] (int r)
+        {
+            if (safe == nullptr || r == 0) return;
+            auto& pr = safe->proc;
+            if (r >= 100 && r < 600) pr.setCurrentProgram (r - 100);
+            else if (r >= 600 && r < 600 + EightEchoProcessor::kNumSlots) pr.loadSlot (r - 600);
+            else if (r >= 700 && r < 700 + EightEchoProcessor::kNumSlots) safe->pedal.saveToSlot (r - 700);
+        });
 }
 
 void EightEchoEditor::showMenu (int learnTarget)
@@ -758,6 +945,7 @@ void EightEchoEditor::showMenu (int learnTarget)
     auto& s = proc.apvts;
     auto val = [&s] (const char* id) { return s.getRawParameterValue (id)->load(); };
     PopupMenu m, presets, stereo, div, exp, size;
+    m.setLookAndFeel (&menuLnf);
     for (int i = 0; i < proc.getNumPrograms(); ++i) presets.addItem (100 + i, proc.getProgramName (i));
     const char* st[] = { "Independent (default)", "Wide stereo", "Panning (ping-pong)" };
     for (int i = 0; i < 3; ++i) stereo.addItem (200 + i, st[i], true, (int) val ("stereo") == i);
@@ -766,16 +954,13 @@ void EightEchoEditor::showMenu (int learnTarget)
     exp.addItem (401, "Expression > E.LEVEL", true, val ("expLevel") > 0.5f);
     exp.addItem (402, "Expression > FEEDBACK", true, val ("expFeedback") > 0.5f);
     exp.addItem (403, "Expression > TIME", true, val ("expTime") > 0.5f);
-    const float cur = currentScale();
-    // memes paliers que Textural / Freeze Shimmer (100 % = 2000 px de haut)
-    // Plugin size : taille de cette fenetre + taille par defaut des nouvelles fenetres (comme Octopus)
     {
         const char* names[numSizes] = { "60 %", "75 %", "100 %" };
         const int def = WigaWindowSize::defaultIndex (JucePlugin_Name, numSizes);
         PopupMenu defSizes;
         for (int i = 0; i < numSizes; ++i)
         {
-            size.addItem (501 + i, String (names[i]) + (i == def ? "  (default)" : ""), true, std::abs (cur - sizeScale (i)) < 0.02f);
+            size.addItem (501 + i, String (names[i]) + (i == def ? "  (default)" : ""), true, std::abs (getHeight() - sizeHeight (i)) <= 2);
             defSizes.addItem (520 + i, names[i], true, i == def);
         }
         size.addSeparator();
@@ -789,7 +974,6 @@ void EightEchoEditor::showMenu (int learnTarget)
     auto ctlName = [] (int i) { return String (EightEchoProcessor::learnable (i).name); };
     bool anyCc = false;
     for (int i = 0; i < EightEchoProcessor::kNumLearn; ++i) anyCc = anyCc || proc.ccNum[i].load() >= 0;
-    // EXP n'a pas de commande sur la facade : son MIDI Learn est dans le sous-menu Expression pedal
     if (const int ex = EightEchoProcessor::learnIndexOf ("exp"); ex >= 0)
     {
         exp.addSeparator();
@@ -797,58 +981,71 @@ void EightEchoEditor::showMenu (int learnTarget)
         if (proc.ccNum[ex].load() >= 0) exp.addItem (850 + ex, "Clear MIDI: EXP");
     }
 
-    if (proc.learnTarget.load() >= 0)
+    if (learnTarget >= 0)      // clic droit sur une commande : en-tete de la commande et son MIDI Learn
     {
-        m.addItem (898, "Cancel MIDI learn (" + ctlName (proc.learnTarget.load()) + ")");
+        const int type = EightEchoProcessor::learnable (learnTarget).type;
+        const int ico = (type == EightEchoProcessor::kContinuous || type == EightEchoProcessor::kSelector) ? NineHandsMenu::icoKnob : NineHandsMenu::icoSwitch;
+        const int cc = proc.ccNum[learnTarget].load();
+        NineHandsMenu::addHeader (m, menuLnf.f, ico, kMenuAccent, ctlName (learnTarget), cc >= 0 ? "MIDI: CC " + String (cc) : String ("MIDI: not assigned"));
+        m.addItem (800 + learnTarget, "MIDI Learn: " + ctlName (learnTarget) + " (" + ccText (learnTarget) + ")", true, proc.learnTarget.load() == learnTarget);
+        if (cc >= 0) m.addItem (850 + learnTarget, "Clear MIDI: " + ctlName (learnTarget));
+        if (proc.learnTarget.load() >= 0) m.addItem (898, "Cancel MIDI learn (" + ctlName (proc.learnTarget.load()) + ")");
         m.addSeparator();
     }
-    if (learnTarget >= 0)      // clic droit sur une commande : son MIDI Learn en tete du menu
+    else
     {
-        m.addItem (800 + learnTarget, "MIDI Learn: " + ctlName (learnTarget) + " (" + ccText (learnTarget) + ")");
-        if (proc.ccNum[learnTarget].load() >= 0) m.addItem (850 + learnTarget, "Clear MIDI: " + ctlName (learnTarget));
-        m.addSeparator();
+        NineHandsMenu::addHeader (m, menuLnf.f, NineHandsMenu::icoPedal, kMenuAccent, "Eight Echo", "Digital delay  v" + String (JucePlugin_VersionString));
+        if (proc.learnTarget.load() >= 0)
+        {
+            m.addItem (898, "Cancel MIDI learn (" + ctlName (proc.learnTarget.load()) + ")");
+            m.addSeparator();
+        }
     }
-    m.addSubMenu ("Factory presets (load into current slot P" + String (proc.getCurrentSlot() + 1) + ")", presets);
+    m.addSubMenu ("Factory presets (load into memory " + String (proc.getCurrentSlot() + 1) + ")", presets);
     m.addSubMenu ("Save current settings to memory", save);
     m.addSeparator();
     m.addSubMenu ("Stereo mode", stereo);
     m.addSubMenu ("Tap division", div);
     m.addItem (601, "Carryover (trails when bypassed)", true, val ("carryover") > 0.5f);
-    m.addItem (602, "SYNC : delay locked to host tempo", true, val ("sync") > 0.5f);
+    m.addItem (602, "SYNC: delay locked to host tempo", true, val ("sync") > 0.5f);
     m.addSubMenu ("Expression pedal (EXP parameter)", exp);
     m.addSeparator();
     if (anyCc) m.addItem (897, "Clear all MIDI assignments");
     m.addSubMenu ("Plugin size", size);
 
-    m.showMenuAsync (PopupMenu::Options(), [this] (int r)
+    m.showMenuAsync (PopupMenu::Options().withMousePosition(),       // menu clic droit : toujours la ou l'on clique
+        [safe = Component::SafePointer<EightEchoEditor> (this)] (int r)
     {
-        auto set = [this] (const char* id, float v)
+        if (safe == nullptr || r == 0) return;
+        auto& ed = *safe;
+        auto& pr = ed.proc;
+        auto set = [&pr] (const char* id, float v)
         {
-            if (auto* par = proc.apvts.getParameter (id)) { par->beginChangeGesture(); par->setValueNotifyingHost (par->convertTo0to1 (v)); par->endChangeGesture(); }
+            if (auto* par = pr.apvts.getParameter (id)) { par->beginChangeGesture(); par->setValueNotifyingHost (par->convertTo0to1 (v)); par->endChangeGesture(); }
         };
-        auto toggle = [this, &set] (const char* id) { set (id, proc.apvts.getRawParameterValue (id)->load() > 0.5f ? 0.0f : 1.0f); };
-        if (r >= 100 && r < 200) proc.setCurrentProgram (r - 100);
+        auto toggle = [&pr, &set] (const char* id) { set (id, pr.apvts.getRawParameterValue (id)->load() > 0.5f ? 0.0f : 1.0f); };
+        if (r >= 100 && r < 200) pr.setCurrentProgram (r - 100);
         else if (r >= 200 && r < 300) set ("stereo", (float) (r - 200));
         else if (r >= 300 && r < 400) set ("division", (float) (r - 300));
         else if (r == 401) toggle ("expLevel");
         else if (r == 402) toggle ("expFeedback");
         else if (r == 403) toggle ("expTime");
-        else if (r >= 501 && r < 501 + numSizes) setScale (sizeScale (r - 501));
+        else if (r >= 501 && r < 501 + numSizes) ed.setScaledHeight (sizeHeight (r - 501));
         else if (r >= 520 && r < 520 + numSizes)
         {
             WigaWindowSize::setDefaultIndex (JucePlugin_Name, r - 520);   // toutes les nouvelles fenetres de ce plugin
-            setScale (sizeScale (r - 520));                               // et cette fenetre tout de suite
+            ed.setScaledHeight (sizeHeight (r - 520));                    // et cette fenetre tout de suite
         }
-        else if (r >= 700 && r < 700 + EightEchoProcessor::kNumSlots) pedal.saveToSlot (r - 700);
+        else if (r >= 700 && r < 700 + EightEchoProcessor::kNumSlots) ed.pedal.saveToSlot (r - 700);
         else if (r == 601) toggle ("carryover");
         else if (r == 602) toggle ("sync");
-        else if (r >= 800 && r < 800 + EightEchoProcessor::kNumLearn) proc.learnTarget.store (r - 800);
+        else if (r >= 800 && r < 800 + EightEchoProcessor::kNumLearn) pr.learnTarget.store (r - 800);
         else if (r >= 850 && r < 850 + EightEchoProcessor::kNumLearn)
         {
-            proc.ccNum[r - 850].store (-1);
-            if (proc.learnTarget.load() == r - 850) proc.learnTarget.store (-1);
+            pr.ccNum[r - 850].store (-1);
+            if (pr.learnTarget.load() == r - 850) pr.learnTarget.store (-1);
         }
-        else if (r == 898) proc.learnTarget.store (-1);
-        else if (r == 897) for (int i = 0; i < EightEchoProcessor::kNumLearn; ++i) proc.ccNum[i].store (-1);
+        else if (r == 898) pr.learnTarget.store (-1);
+        else if (r == 897) for (int i = 0; i < EightEchoProcessor::kNumLearn; ++i) pr.ccNum[i].store (-1);
     });
 }

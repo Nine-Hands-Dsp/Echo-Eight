@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22)
-project(EightEcho VERSION 1.8.4)
+project(EightEcho VERSION 2.0.0)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -38,9 +38,13 @@ juce_add_plugin(EightEcho
     AU_MAIN_TYPE kAudioUnitType_MusicEffect)
 
 juce_add_binary_data(EightEchoData SOURCES
-    background.png leds_on.png x2_on.png sync_on.png
-    pointer0.png pointer1.png pointer2.png pointer3.png pointer4.png
-    lens_left_ice.png lens_right_red.png lens_right_green.png lens_right_orange.png)
+    background.png footswitch.png pipe_on.png sync_on.png
+    led_ice.png led_red.png led_green.png led_orange.png
+    glow_tempo.png glow_check_red.png glow_check_green.png glow_check_orange.png glow_sync.png glow_x2.png
+    glow_slot1.png glow_slot2.png glow_slot3.png glow_slot4.png glow_slot5.png glow_slot6.png glow_slot7.png
+    NineHandsLogo.svg assets/eight_echo_title.svg assets/eight_echo_motif.svg
+    assets/fonts/LiberationSans-Bold.ttf assets/fonts/LiberationMono-Bold.ttf
+    assets/fonts/Poppins-Regular.ttf assets/fonts/Poppins-Medium.ttf assets/fonts/Poppins-Bold.ttf)
 
 target_sources(EightEcho PRIVATE
     PluginProcessor.cpp

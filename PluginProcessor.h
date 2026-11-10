@@ -71,6 +71,8 @@ public:
     void saveSlot (int i);
     int  getCurrentSlot() const { return currentSlot; }
     bool slotMatchesCurrent (int i) const;
+    juce::String getSlotName (int i) const;                    // nom du preset garde dans la memoire i
+    juce::String getCurrentName() const { return currentName; } // nom affiche dans la barre de presets
     static const juce::StringArray& slotParamIds();
 
     // ---- MIDI Learn : toutes les commandes de la facade (clic droit sur une commande ou menu MIDI) ----
@@ -90,6 +92,7 @@ private:
     int currentProgram = 0;
     std::array<juce::ValueTree, kNumSlots> slots;
     int currentSlot = 0;
+    juce::String currentName { "Bread & Butter" };
     float loopLevel = 0.5f;
     void initSlots();
 
