@@ -36,7 +36,7 @@ AS = 4                                   # pixels par unite : boitier rendu en 4
 UW, UH = 760, 958
 W, H = UW * AS, UH * AS
 
-L = np.array([-0.46, -0.62, 0.64]); L /= np.linalg.norm(L)        # vers la lumiere (x droite, y bas, z vers l'oeil)
+L = np.array([-0.546, -0.546, 0.64]); L /= np.linalg.norm(L)       # vers la lumiere : en haut a gauche a 45 degres (x droite, y bas, z vers l'oeil)
 V = np.array([0.0, 0.0, 1.0]); HV = (L + V) / np.linalg.norm(L + V)
 
 # ------------------------------------------------------------------ geometrie (unites de travail)
@@ -44,12 +44,18 @@ OUT_W, OUT_H = 1235, 1800
 JACK_LEN = 92.0                                  # deux embases par tranche (A et B, comme la pedale d'origine)
 _jt = PC.jack_sprite(JACK_LEN, 1, 1)
 JACK_PROT = _jt[1] - 0.5                         # saillie de l'embase hors du boitier
-PY0, PH, PR = 34.0, 890.0, 30.0
+PY0, PH = 34.0, 890.0
 PW = OUT_W / OUT_H * PH - 2 * JACK_PROT          # boitier + jacks = largeur de l'image (meme echelle que la hauteur)
 PX0 = (UW - PW) / 2
 CX = PX0 + PW / 2
 CROP_X0, CROP_W = PX0 - JACK_PROT, PW + 2 * JACK_PROT
 SC = (OUT_H / 2.0) / PH                          # unites de travail -> unites du plugin (617,5 x 900)
+KPX = OUT_H / PH                                 # pixels de l'image 1235 x 1800 par unite de travail
+def ux(px): return px / KPX + CROP_X0            # maquettes SVG (repere de l'image 1235 x 1800) -> unites de travail
+def uy(py): return py / KPX + PY0
+# boitier (maquette assets/eight_echo_box.svg, nov. 2026) : arrondi exterieur 54,3 px, bevel rond de 17 px
+PR = 54.3 / KPX
+EDGE = 17.0 / KPX
 
 # placement repris de la pedale Eight Echo d'origine (visuel 578 x 896, boitier x 27-551, y 18-886)
 KY = PH / 868.0
@@ -59,8 +65,9 @@ def P(xo, yo): return (CX + (xo - 289.0) * KXo, PY0 + (yo - 18.0) * KY)
 KNOB_R = 52.0
 KD = (394.5 - 204.0) / 2 * KXo                   # potards symetriques par rapport au centre de la pedale
 KL, KRX = CX - KD, CX + KD
-KNOBS = [('elevel', 'E.LEVEL', KL, P(0, 149)[1]), ('mix', 'MIX', KRX, P(0, 149)[1]),
-         ('feedback', 'FEEDBACK', KL, P(0, 311)[1]), ('time', 'TIME', KRX, P(0, 311)[1]), ('mode', 'MODE', KRX, P(0, 497)[1])]
+# 4 potards du haut : centres de la maquette assets/eight_echo_inside.svg (taille inchangee)
+KNOBS = [('elevel', 'E.LEVEL', ux(408), uy(295)), ('mix', 'MIX', ux(828), uy(295)),
+         ('feedback', 'FEEDBACK', ux(408), uy(610)), ('time', 'TIME', ux(828), uy(610)), ('mode', 'MODE', KRX, P(0, 497)[1])]
 LABEL_DY = 80.0                                  # etiquette sous le potard
 SLOTS = [P(0, y)[1] for y in (94, 145, 197, 248, 300, 352, 403)]      # remontees, loin de OUT A (nov. 2026)
 SLOT_NUM_X = PX0 + 70.0 * KXo                 # numeros decales avec les tubes allonges
@@ -76,7 +83,7 @@ X2 = (CX, FS_T[1] + 2.0)
 FS_LABEL_Y = P(0, 860)[1]
 LOGO_C = (CX, P(0, 861)[1]); LOGO_W = 186.0
 JACK_YS = [P(0, 480)[1], P(0, 622)[1]]           # A, B
-STATUS = (CX - 150.0 * KXo, P(0, 30)[1], 300.0 * KXo, 40.0)   # zone de la ligne d'etat (cadre sombre, comme Screamer)
+STATUS = (ux(618.0) - 150.0 * KXo, uy(93.66) - 20.0, 300.0 * KXo, 40.0)   # ligne d'etat : centre de la maquette, taille inchangee
 # tubes de lumiere des memoires (comme la pedale d'origine) : sortent de la tranche gauche en montant vers la droite
 # mesures sur la pedale d'origine (ecartement des memoires = 52,3 px d'origine) : tube plat (incruste, sans relief),
 # du bord interieur de l'arete (8 px) jusqu'au bout arrondi (42 px), monte a ~24 degres, 11 px d'epaisseur,
@@ -85,6 +92,22 @@ PIPE_R = 8.6 * KY                              # tubes elargis (demande nov. 202
 PIPE_CUT = 8.0 * KXo                           # coupe droite cote arete
 PIPE_A = (PIPE_CUT - 2.0, 7.0 * KY)            # depart (relatif : x depuis PX0, y depuis la memoire)
 PIPE_B = (52.0 * KXo - PIPE_R, -8.5 * KY)      # centre du bout arrondi (tubes allonges vers la droite, nov. 2026)
+# nov. 2026 : les tubes font partie de la forme du boitier (maquette assets/eight_echo_box.svg, en bleu) ; ils traversent
+# la tranche gauche (le bevel rond s'interrompt) et sont bordes d'un bevel droit de 2 px (en vert)
+import re as _re
+from svgpath import flatten as _flatten
+_box_svg = open(os.path.join(ROOT, 'assets', 'eight_echo_box.svg')).read()
+PIPE_POLYS = []                                   # contour de chaque tube, unites de travail, du haut vers le bas
+for _d in _re.findall(r'class="cls-3" d="([^"]+)"', _box_svg):
+    PIPE_POLYS.append([(ux(q[0]), uy(q[1])) for q in _flatten(_d)[0]])
+PIPE_POLYS.sort(key=lambda pl: min(q[1] for q in pl))
+PIPE_END_X = ux(43.1)                             # bout du tube sur la tranche gauche
+PIPE_FACE_X = ux(55.0)                            # fin du bevel rond
+PIPE_YC = [uy(169.08 + 107.0 * i) for i in range(7)]          # centre du tube sur la tranche (hauteur 36 px)
+PIPE_HALF = 18.0 / KPX
+PIPE_TIP = [(ux(127.289), uy(140.032 + 107.0 * i)) for i in range(7)]   # centre du bout arrondi
+PIPE_TIP_R = 16.694 / KPX
+PIPE_CH = 2.0 / KPX                               # bevel droit autour du tube
 
 # ------------------------------------------------------------------ outils
 YY, XX = np.mgrid[0:H, 0:W].astype(np.float32)
@@ -116,7 +139,6 @@ def over(dst, rgba, x0, y0):
 print('boitier 4K...')
 sd = rrect_sd(UX, UY, PX0, PY0, PW, PH, PR)
 body = np.clip(0.5 - sd * AS, 0, 1).astype(np.float32)
-EDGE = 9.0
 d_in = np.clip(-sd, 0, None)
 hgt = np.where(d_in < EDGE, np.sqrt(np.clip(EDGE ** 2 - (EDGE - d_in) ** 2, 0, None)), EDGE).astype(np.float32)
 del d_in
@@ -125,6 +147,24 @@ del hgt
 nrm = np.dstack([-gx, -gy, np.ones_like(gx)]).astype(np.float32); del gx, gy
 nrm /= np.linalg.norm(nrm, axis=2, keepdims=True)
 ndl = np.clip(nrm @ L.astype(np.float32), 0, 1); ndh = np.clip(nrm @ HV.astype(np.float32), 0, 1); del nrm
+# tubes de lumiere = partie de la forme du boitier : encoche dans la tranche gauche, tube plat borde d'un bevel droit
+PM8 = np.zeros((H, W), np.uint8)
+cv2.fillPoly(PM8, [np.round(np.array(pl) * AS * 16).astype(np.int32) for pl in PIPE_POLYS], 255, lineType=cv2.LINE_AA, shift=4)
+PM = PM8.astype(np.float32) / 255.0                 # couverture des tubes
+notch = np.zeros((H, W), np.float32)                # le bevel rond s'arrete a hauteur des tubes
+for yc in PIPE_YC:
+    notch[int(round((yc - PIPE_HALF) * AS)):int(round((yc + PIPE_HALF) * AS)), :int(round(PIPE_FACE_X * AS))] = 1.0
+body = np.maximum(body * (1.0 - notch), PM)
+# distance au bord du tube (le bout coupe sur la tranche n'a pas de bevel)
+ext = (PM8 > 127).astype(np.uint8)
+for yc in PIPE_YC:
+    y0_, y1_ = int(round((yc - PIPE_HALF) * AS)), int(round((yc + PIPE_HALF) * AS))
+    ext[y0_:y1_, :int(round(PIPE_FACE_X * AS))] = np.maximum(ext[y0_:y1_, :int(round(PIPE_FACE_X * AS))], notch[y0_:y1_, :int(round(PIPE_FACE_X * AS))].astype(np.uint8))
+PDIST = cv2.distanceTransform(ext, cv2.DIST_L2, 5).astype(np.float32) / AS     # unites, a l'interieur du tube
+del ext
+inp = PM > 0.5                                     # le tube est plat (son bevel droit est dessine avec le tube)
+ndl = np.where(inp, np.float32(L[2]), ndl); ndh = np.where(inp, np.float32(HV[2]), ndh)
+del notch, inp
 # texture : 4096 px de cote, le boitier (PW x PH unites) la couvre sans repetition ; seul le relief (stries) est garde,
 # la couleur vient de la teinte de la pedale d'origine
 tex = np.asarray(Image.open(os.path.join(ROOT, 'assets', 'kit', 'brushed_texture.png')).convert('L')).astype(np.float32)
@@ -190,39 +230,44 @@ def seg_dist(px, py, a, b):
     vx, vy = bx - ax, by - ay
     t = np.clip(((px - ax) * vx + (py - ay) * vy) / (vx * vx + vy * vy), 0, 1)
     return np.hypot(px - (ax + t * vx), py - (ay + t * vy)), t
-PIPE_BOX = (-8.0, -26.0, 74.0, 50.0)            # zone d'un tube (x0, y0 relatifs, largeur, hauteur)
-def pipe_layers(ys):
-    """renvoie (x0, y0 en unites, rgba eteint, rgba allume) d'un tube a la hauteur ys"""
-    x0u, y0u = PX0 + PIPE_BOX[0], ys + PIPE_BOX[1]
-    n_w, n_h = int(PIPE_BOX[2] * AS), int(PIPE_BOX[3] * AS)
+HALO_M = 12.0
+PIPE_BOX = (PIPE_END_X - 3.0, PIPE_TIP[0][1] - PIPE_TIP_R - HALO_M - PIPE_YC[0],
+            PIPE_TIP[0][0] + PIPE_TIP_R + HALO_M - (PIPE_END_X - 3.0), PIPE_YC[0] + PIPE_HALF + HALO_M - (PIPE_TIP[0][1] - PIPE_TIP_R - HALO_M))
+def pipe_layers(i):
+    """renvoie (x0, y0 en unites, rgba eteint, rgba allume) du tube i (forme de la maquette du boitier)"""
+    yc = PIPE_YC[i]
+    x0u, y0u = PIPE_BOX[0], yc + PIPE_BOX[1]
+    X0, Y0 = int(round(x0u * AS)), int(round(y0u * AS))
+    n_w, n_h = int(round(PIPE_BOX[2] * AS)), int(round(PIPE_BOX[3] * AS))
+    x0u, y0u = X0 / AS, Y0 / AS
     yy, xx = np.mgrid[0:n_h, 0:n_w].astype(np.float32)
     px, py = x0u + (xx + 0.5) / AS, y0u + (yy + 0.5) / AS
-    A = (PX0 + PIPE_A[0], ys + PIPE_A[1]); B = (PX0 + PIPE_B[0], ys + PIPE_B[1])
-    d, t = seg_dist(px, py, A, B)
-    cov = np.clip((PIPE_R - d) * AS, 0, 1)
-    # tranche gauche : le tube sort du boitier (coupe sur l'arete, comme sur la pedale d'origine)
-    cov *= np.clip((px - (PX0 + PIPE_CUT)) * AS, 0, 1)
-    # position dans la largeur du tube : -1 (bord du haut) .. +1 (bord du bas)
-    ux, uy = (B[0] - A[0]), (B[1] - A[1]); ln = math.hypot(ux, uy); ux, uy = ux / ln, uy / ln
-    nx_, ny_ = -uy, ux                                           # perpendiculaire vers le bas a droite
-    sgn = np.sign((px - A[0]) * nx_ + (py - A[1]) * ny_)
-    s = np.clip(d / PIPE_R, 0, 1) * sgn
-    plate = img[int(y0u * AS):int(y0u * AS) + n_h, int(x0u * AS):int(x0u * AS) + n_w]
-    # eteint : plat, incruste dans la plaque (aucun relief, aucune ombre) ; acrylique un peu plus clair que la plaque
-    offc = plate * 0.80 + np.array([150.0, 160.0, 168.0]) * 0.20 + 30.0      # nettement plus clair que la plaque, sans volume
-    lip = np.clip((s - 0.62) / 0.18, 0, 1) * np.clip((1.0 - s) / 0.12, 0, 1) * cov     # liseré clair, bord du bas
-    offc = offc + (lip * 45.0)[..., None] * np.array([1.0, 1.02, 1.04])
+    cov = PM[Y0:Y0 + n_h, X0:X0 + n_w]
+    din = PDIST[Y0:Y0 + n_h, X0:X0 + n_w]
+    pm8 = (PM8[Y0:Y0 + n_h, X0:X0 + n_w] > 127).astype(np.uint8)
+    dout = cv2.distanceTransform(1 - pm8, cv2.DIST_L2, 5).astype(np.float32) / AS     # distance hors du tube
+    t = np.clip((px - PIPE_FACE_X) / (PIPE_TIP[i][0] - PIPE_FACE_X), 0, 1)           # 0 sur la tranche .. 1 au bout
+    plate = img[Y0:Y0 + n_h, X0:X0 + n_w]
+    # eteint : acrylique plat, un peu plus clair que la plaque, avec son bevel droit (la plaque porte deja l'eclairage du bevel)
+    offc = plate * 0.80 + np.array([150.0, 160.0, 168.0]) * 0.20 + 30.0
+    # bevel droit de 2 px : pente a 45 degres le long du contour (eclaire en haut a gauche, sombre en bas a droite)
+    hp = cv2.GaussianBlur(np.minimum(din, PIPE_CH), (0, 0), 0.30 * AS)
+    gy_, gx_ = np.gradient(hp, 1.0 / AS)
+    nn = np.dstack([-gx_, -gy_, np.ones_like(gx_)]); nn /= np.linalg.norm(nn, axis=2, keepdims=True)
+    ndl_c = np.clip(nn @ L, 0, 1); ndh_c = np.clip(nn @ HV, 0, 1)
+    shade = (0.55 + 0.65 * ndl_c) / (0.55 + 0.65 * L[2])
+    offc = offc * shade[..., None] + ((60.0 * ndh_c ** 24) * (din < PIPE_CH * 1.5))[..., None] * np.array([0.95, 0.98, 1.0])
     off_rgba = np.dstack([np.clip(offc, 0, 255), cov * 255]).astype(np.float32)
-    # allume (comme l'original) : tube blanc lumineux, bord bleu glace, toujours plat
-    # la lumiere deborde un peu du logement : forme allumee 1,6 unite plus large, bord adouci
+    # allume : tube blanc lumineux, bord bleu glace ; la lumiere deborde un peu du logement (1,6 unite), halo bleu glace
     OVER = 1.6
-    cov_l = np.clip((PIPE_R + OVER - d) / 1.2, 0, 1) * np.clip((px - (PX0 + PIPE_CUT)) * AS, 0, 1)
-    sl = np.clip(d / (PIPE_R + OVER), 0, 1)
+    inside_l = np.where(pm8 > 0, din + OVER, OVER - dout)                            # distance au bord de la forme allumee
+    cov_l = np.clip(inside_l / 1.2, 0, 1) * np.clip((px - PIPE_END_X) * AS, 0, 1)
+    sl = np.clip(1.0 - inside_l / (PIPE_HALF * 0.93 + OVER), 0, 1)                   # 0 au centre .. 1 au bord
     core = np.clip(np.exp(-(sl / 0.80) ** 6) * (0.85 + 0.30 * t), 0, 1)
     lit = np.array([120.0, 190.0, 255.0]) * (1 - core[..., None]) + np.array([244.0, 250.0, 255.0]) * core[..., None]
-    # halo lumineux autour du tube allume (bleu glace, s'eteint en douceur)
-    halo = 0.75 * np.exp(-np.clip(d - PIPE_R, 0, None) / 6.0) * np.clip((px - (PX0 + PIPE_CUT - 2.0)) / 3.0, 0, 1)
+    halo = 0.75 * np.exp(-np.clip(dout - 0.0, 0, None) / 6.0)
     halo *= np.clip(1.0 - np.maximum(np.abs(px - (x0u + PIPE_BOX[2] / 2)) / (PIPE_BOX[2] / 2), np.abs(py - (y0u + PIPE_BOX[3] / 2)) / (PIPE_BOX[3] / 2)), 0, 1) ** 0.5
+    halo *= body[Y0:Y0 + n_h, X0:X0 + n_w]                                          # rien hors du boitier
     a_on = np.clip(cov_l + halo * (1 - cov_l), 0, 1)
     halo_col = np.array([140.0, 205.0, 255.0])
     lit = np.where(cov_l[..., None] > 0, lit * cov_l[..., None] + halo_col * (1 - cov_l[..., None]), halo_col)
@@ -230,9 +275,8 @@ def pipe_layers(ys):
     on_rgba = np.dstack([np.clip(lit, 0, 255), a_on * 255]).astype(np.float32)
     return x0u, y0u, off_rgba, on_rgba
 PIPES = []
-for ys in SLOTS:
-    x0u, y0u, off_rgba, on_rgba = pipe_layers(ys)
-    a = off_rgba[..., 3] / 255.0
+for i in range(7):
+    x0u, y0u, off_rgba, on_rgba = pipe_layers(i)
     over(img, off_rgba, x0u * AS, y0u * AS)
     PIPES.append((x0u, y0u, on_rgba))
 
@@ -332,11 +376,13 @@ def sq(c, r): return (c[0] - r, c[1] - r, 2 * r, 2 * r)
 GL['tempo'] = glow([(LED_T[0], LED_T[1], 1.0)], sq(LED_T, 100.0), ICE, disc_out(LED_T, LED_LENS * 1.07), 'glow_tempo.png')
 for nm, col in (('red', RED), ('green', GREEN), ('orange', ORANGE)):
     GL['check_' + nm] = glow([(LED_C[0], LED_C[1], 1.0)], sq(LED_C, 100.0), col, disc_out(LED_C, LED_LENS * 1.07), 'glow_check_' + nm + '.png')
-for i, ys in enumerate(SLOTS):
-    A = (PX0 + PIPE_CUT + 1.0, ys + PIPE_A[1]); B = (PX0 + PIPE_B[0], ys + PIPE_B[1])
+for i in range(7):
+    A = (PIPE_FACE_X, PIPE_YC[i]); B = PIPE_TIP[i]
     src = [(A[0] + (B[0] - A[0]) * k, A[1] + (B[1] - A[1]) * k, 0.12 + 0.20 * k) for k in np.linspace(0, 1, 8)]
-    keep = (lambda A_, B_: (lambda px, py: ((seg_dist(px, py, A_, B_)[0] > PIPE_R) | (px < PX0 + PIPE_CUT)).astype(np.float64)))((PX0 + PIPE_A[0], ys + PIPE_A[1]), B)
-    GL['slot%d' % i] = glow(src, (PX0 - 6.0, ys - 52.0, 130.0, 104.0), ICE, keep, 'glow_slot%d.png' % (i + 1), h1=5.5, h2=16.0, gain=2.6)
+    Y0 = int(round((PIPE_YC[i] - 52.0) * AS))
+    pmask = PM8 > 127
+    keep = (lambda pm_: (lambda px, py: (1.0 - pm_[np.clip((py * AS).astype(int), 0, H - 1), np.clip((px * AS).astype(int), 0, W - 1)]).astype(np.float64)))(pmask)
+    GL['slot%d' % i] = glow(src, (PX0 - 6.0, (A[1] + B[1]) / 2 - 52.0, 130.0, 104.0), ICE, keep, 'glow_slot%d.png' % (i + 1), h1=5.5, h2=16.0, gain=2.6)
 GL['sync'] = glow([(SYNC[0], SYNC[1], 1.0)], sq(SYNC, 82.0), ICE, disc_out(SYNC, SYNC_R * 0.97), 'glow_sync.png', h1=10.0, h2=26.0, gain=0.6)
 PIPE_ON = [(x0u, y0u) for (x0u, y0u, _) in PIPES]
 
@@ -492,7 +538,7 @@ def Y(v): return (v - PY0) * SC
 def PT(p): return "{ %s, %s }" % (f(X(p[0])), f(Y(p[1])))
 def RC(r): return "{ %s, %s, %s, %s }" % (f(X(r[0])), f(Y(r[1])), f(r[2] * SC), f(r[3] * SC))
 fk = {'sans': 0, 'mono': 1}
-SLOT_POS = [(PX0 + (PIPE_A[0] + PIPE_B[0]) / 2, y + (PIPE_A[1] + PIPE_B[1]) / 2) for y in SLOTS]
+SLOT_POS = [((PIPE_FACE_X + PIPE_TIP[i][0]) / 2, (PIPE_YC[i] + PIPE_TIP[i][1]) / 2) for i in range(7)]
 lay = {"frame": [OUT_W / 2, OUT_H / 2], "knobs": [[X(k[2]), Y(k[3]), KNOB_R * SC] for k in KNOBS],
        "slots": [[X(p[0]), Y(p[1])] for p in SLOT_POS], "sync": [X(SYNC[0]), Y(SYNC[1])],
        "ledTempo": [X(LED_T[0]), Y(LED_T[1])], "ledCheck": [X(LED_C[0]), Y(LED_C[1])],
