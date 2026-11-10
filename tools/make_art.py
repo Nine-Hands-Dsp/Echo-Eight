@@ -101,7 +101,7 @@ PIPE_POLYS = []                                   # contour de chaque tube, unit
 for _d in _re.findall(r'class="cls-3" d="([^"]+)"', _box_svg):
     PIPE_POLYS.append([(ux(q[0]), uy(q[1])) for q in _flatten(_d)[0]])
 PIPE_POLYS.sort(key=lambda pl: min(q[1] for q in pl))
-PIPE_END_X = ux(43.1)                             # bout du tube sur la tranche gauche
+PIPE_END_X = PX0                                  # maquette v004 : le tube va jusqu'au bord du boitier
 PIPE_FACE_X = ux(55.0)                            # fin du bevel rond
 PIPE_YC = [uy(169.08 + 107.0 * i) for i in range(7)]          # centre du tube sur la tranche (hauteur 36 px)
 PIPE_HALF = 18.0 / KPX
@@ -150,6 +150,8 @@ ndl = np.clip(nrm @ L.astype(np.float32), 0, 1); ndh = np.clip(nrm @ HV.astype(n
 # tubes de lumiere = partie de la forme du boitier : encoche dans la tranche gauche, tube plat borde d'un bevel droit
 PM8 = np.zeros((H, W), np.uint8)
 cv2.fillPoly(PM8, [np.round(np.array(pl) * AS * 16).astype(np.int32) for pl in PIPE_POLYS], 255, lineType=cv2.LINE_AA, shift=4)
+for yc in PIPE_YC:                                  # le bout du tube affleure le bord exact du boitier
+    cv2.fillPoly(PM8, [np.round(np.array([(PX0, yc - PIPE_HALF), (PIPE_FACE_X, yc - PIPE_HALF), (PIPE_FACE_X, yc + PIPE_HALF), (PX0, yc + PIPE_HALF)]) * AS * 16).astype(np.int32)], 255, lineType=cv2.LINE_AA, shift=4)
 PM = PM8.astype(np.float32) / 255.0                 # couverture des tubes
 notch = np.zeros((H, W), np.float32)                # bande du tube sur la tranche (sert seulement au bevel droit)
 for yc in PIPE_YC:
