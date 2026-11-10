@@ -254,21 +254,12 @@ def pipe_layers(i):
     # eteint : acrylique plat, un peu plus clair que la plaque, avec son bevel droit (la plaque porte deja l'eclairage du bevel)
     offc = plate * 0.80 + np.array([150.0, 160.0, 168.0]) * 0.20 + 30.0
     # bevel droit de 2 px : pente a 45 degres le long du contour (eclaire en haut a gauche, sombre en bas a droite)
-    # debosse (nov. 2026) : le tube est legerement enfonce, la pente descend du bord vers l'interieur
-    hp = cv2.GaussianBlur(-np.minimum(din, PIPE_CH), (0, 0), 0.30 * AS)
+    hp = cv2.GaussianBlur(np.minimum(din, PIPE_CH), (0, 0), 0.30 * AS)
     gy_, gx_ = np.gradient(hp, 1.0 / AS)
     nn = np.dstack([-gx_, -gy_, np.ones_like(gx_)]); nn /= np.linalg.norm(nn, axis=2, keepdims=True)
     ndl_c = np.clip(nn @ L, 0, 1); ndh_c = np.clip(nn @ HV, 0, 1)
     shade = (0.55 + 0.65 * ndl_c) / (0.55 + 0.65 * L[2])
     offc = offc * shade[..., None] + ((60.0 * ndh_c ** 24) * (din < PIPE_CH * 1.5))[..., None] * np.array([0.95, 0.98, 1.0])
-    # ombre interieure : le rebord du boitier ombre le haut gauche du tube (lumiere en haut a gauche a 45 degres)
-    sh = int(round(1.4 * AS))
-    outside = (1.0 - pm8).astype(np.float32)
-    outside = np.pad(outside, ((sh, 0), (sh, 0)), constant_values=0.0)[:n_h, :n_w]
-    # bout coupe sur la tranche : pas d'ombre venant de l'exterieur du boitier
-    outside *= (px > PIPE_FACE_X).astype(np.float32)
-    inner = cv2.GaussianBlur(outside, (0, 0), 1.0 * AS) * cov
-    offc = offc * (1.0 - 0.32 * inner)[..., None]
     off_rgba = np.dstack([np.clip(offc, 0, 255), cov * 255]).astype(np.float32)
     # allume : tube blanc lumineux, bord bleu glace ; la lumiere deborde un peu du logement (1,6 unite), halo bleu glace
     OVER = 1.6
