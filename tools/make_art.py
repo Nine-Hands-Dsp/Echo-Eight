@@ -277,6 +277,16 @@ def pipe_layers(i):
     lit = np.where(a_on[..., None] > 1e-3, lit, 0)
     on_rgba = np.dstack([np.clip(lit, 0, 255), a_on * 255]).astype(np.float32)
     return x0u, y0u, off_rgba, on_rgba
+# sous l'acrylique translucide : aplat #8196A6 a la place de la texture (masque assets/eight_echo_pipe_mask.svg, nov. 2026)
+_mask8 = np.zeros((H, W), np.uint8)
+_msvg = open(os.path.join(ROOT, 'assets', 'eight_echo_pipe_mask.svg')).read()
+cv2.fillPoly(_mask8, [np.round(np.array([(ux(q[0]), uy(q[1])) for q in _flatten(d_)[0]]) * AS * 16).astype(np.int32)
+                      for d_ in _re.findall(r'<path[^>]*\sd="([^"]+)"', _msvg)], 255, lineType=cv2.LINE_AA, shift=4)
+for yc in PIPE_YC:
+    cv2.fillPoly(_mask8, [np.round(np.array([(PX0, yc - PIPE_HALF), (PIPE_FACE_X, yc - PIPE_HALF), (PIPE_FACE_X, yc + PIPE_HALF), (PX0, yc + PIPE_HALF)]) * AS * 16).astype(np.int32)], 255, lineType=cv2.LINE_AA, shift=4)
+_mk = (_mask8.astype(np.float32) / 255.0)[..., None]
+img[...] = img * (1.0 - _mk) + np.array([0x81, 0x96, 0xA6], np.float32) * _mk
+del _mask8, _mk
 PIPES = []
 for i in range(7):
     x0u, y0u, off_rgba, on_rgba = pipe_layers(i)
