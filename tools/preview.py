@@ -220,7 +220,7 @@ def pill(mode):
     cv_ = base.copy()
     pan = Image.new('RGBA', cv_.size, (0, 0, 0, 0)); pd = ImageDraw.Draw(pan)
     r_ = (st[0] * S, st[1] * S, (st[0] + st[2]) * S, (st[1] + st[3]) * S)
-    rad = 19.36 * S / 2
+    rad = st[3] * S / 2                       # coins en demi-cercle, comme les autres pedales (taille de la maquette)
     pd.rounded_rectangle(r_, radius=rad, fill=(9, 14, 19, int(0.92 * 255)))
     pd.rounded_rectangle((r_[0] + 1.5, r_[1] + 1.5, r_[2] - 1.5, r_[3] - 1.5), radius=rad - 1.5, outline=ICE_T + (int(0.45 * 255),), width=3)
     cy = (r_[1] + r_[3]) / 2
