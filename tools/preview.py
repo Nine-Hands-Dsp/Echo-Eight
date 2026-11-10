@@ -210,17 +210,40 @@ for (k, v) in zip(lay['knobs'], [0.5, 0.5, 0.4, 0.62, None]):
     bd.line((p0[0] * S, p0[1] * S, p1[0] * S, p1[1] * S), fill=(236, 240, 243, 255), width=int(0.062 * R * S))
     canvas.alpha_composite(big)
 
-# ligne d'etat : zone sombre arrondie (comme Screamer), visible seulement quand un reglage change
+# barre de presets / ligne d'etat : une seule pastille (regle NINE HANDS | DSP, reference Strong Pickle v1.5.3)
+# taille et arrondi de la maquette (assets/eight_echo_inside.svg), texte Poppins Medium 23 unites (46 px), fleches 34 unites
 st = pj['statusRect']
-pan = Image.new('RGBA', canvas.size, (0, 0, 0, 0)); pd = ImageDraw.Draw(pan)
-r_ = (st[0] * S, st[1] * S, (st[0] + st[2]) * S, (st[1] + st[3]) * S)
-pd.rounded_rectangle(r_, radius=10 * S, fill=(9, 14, 19, int(0.90 * 255)))
-pd.rounded_rectangle((r_[0] + 1.5, r_[1] + 1.5, r_[2] - 1.5, r_[3] - 1.5), radius=10 * S - 1.5, outline=(150, 210, 255, int(0.45 * 255)), width=3)
-canvas.alpha_composite(pan)
-d2 = ImageDraw.Draw(canvas)
-fsx = ImageFont.truetype(os.path.join(ROOT, 'assets', 'fonts', FONTS['sans']), int(21 * 2 * 1.01))
-d2.text(((st[0] + st[2] / 2) * S, (st[1] + st[3] / 2) * S), 'E.LEVEL  64 %', font=fsx, fill=SILK + (255,), anchor='mm')
-
+base = canvas.copy()
+PF = ImageFont.truetype(os.path.join(ROOT, 'assets', 'fonts', 'Poppins-Medium.ttf'), int(round(23 * S)))
+ICE_T = (150, 210, 255)
+def pill(mode):
+    cv_ = base.copy()
+    pan = Image.new('RGBA', cv_.size, (0, 0, 0, 0)); pd = ImageDraw.Draw(pan)
+    r_ = (st[0] * S, st[1] * S, (st[0] + st[2]) * S, (st[1] + st[3]) * S)
+    rad = 19.36 * S / 2
+    pd.rounded_rectangle(r_, radius=rad, fill=(9, 14, 19, int(0.92 * 255)))
+    pd.rounded_rectangle((r_[0] + 1.5, r_[1] + 1.5, r_[2] - 1.5, r_[3] - 1.5), radius=rad - 1.5, outline=ICE_T + (int(0.45 * 255),), width=3)
+    cy = (r_[1] + r_[3]) / 2
+    if mode == 'preset':
+        aw, tr = 34 * S, 5.5 * S
+        for sgn, x in ((-1, r_[0] + aw / 2 + 6), (1, r_[2] - aw / 2 - 6)):
+            pd.polygon([(x - sgn * tr * 0.8, cy - tr), (x - sgn * tr * 0.8, cy + tr), (x + sgn * tr * 0.8, cy)], fill=(255, 255, 255, int(0.6 * 255)))
+        cv_.alpha_composite(pan); d_ = ImageDraw.Draw(cv_)
+        num, name = '1', 'Bread & Butter'
+        sep = '  ·  '
+        wn = d_.textlength(num, font=PF); ws = d_.textlength(sep, font=PF); wt = d_.textlength(name, font=PF)
+        x0 = (r_[0] + r_[2]) / 2 - (wn + ws + wt) / 2
+        d_.text((x0, cy), num, font=PF, fill=ICE_T + (255,), anchor='lm')
+        d_.text((x0 + wn, cy), sep, font=PF, fill=(150, 160, 170, 255), anchor='lm')
+        d_.text((x0 + wn + ws, cy), name, font=PF, fill=SILK + (255,), anchor='lm')
+    else:
+        cv_.alpha_composite(pan); d_ = ImageDraw.Draw(cv_)
+        d_.text(((r_[0] + r_[2]) / 2, cy), 'E.LEVEL  64 %', font=PF, fill=SILK + (255,), anchor='mm')
+    return cv_
+status_img = pill('status')
+canvas = pill('preset')
+os.makedirs(os.path.join(ROOT, 'design'), exist_ok=True)
+status_img.save(os.path.join(ROOT, 'design', 'preview_reglage.png'))
 os.makedirs(os.path.join(ROOT, 'design'), exist_ok=True)
 canvas.save(os.path.join(ROOT, 'design', 'preview.png'))
 # fenetre 60 % (hauteur 493) sur fond sombre
