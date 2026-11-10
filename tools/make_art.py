@@ -151,18 +151,10 @@ ndl = np.clip(nrm @ L.astype(np.float32), 0, 1); ndh = np.clip(nrm @ HV.astype(n
 PM8 = np.zeros((H, W), np.uint8)
 cv2.fillPoly(PM8, [np.round(np.array(pl) * AS * 16).astype(np.int32) for pl in PIPE_POLYS], 255, lineType=cv2.LINE_AA, shift=4)
 PM = PM8.astype(np.float32) / 255.0                 # couverture des tubes
-notch = np.zeros((H, W), np.float32)                # le bevel rond s'arrete a hauteur des tubes
+notch = np.zeros((H, W), np.float32)                # bande du tube sur la tranche (sert seulement au bevel droit)
 for yc in PIPE_YC:
     notch[int(round((yc - PIPE_HALF) * AS)):int(round((yc + PIPE_HALF) * AS)), :int(round(PIPE_FACE_X * AS))] = 1.0
-# coins de l'encoche arrondis (3,75 px de la maquette v002) : ouverture morphologique de la tranche entaillee
-NOTCH_R = 3.75 / KPX * AS
-_rest = ((body > 0.5) & (notch < 0.5)).astype(np.uint8)
-_ero = (cv2.distanceTransform(_rest, cv2.DIST_L2, 5) > NOTCH_R).astype(np.uint8)
-_d = cv2.distanceTransform(1 - _ero, cv2.DIST_L2, 5)
-_open = np.clip(NOTCH_R - _d + 0.5, 0, 1).astype(np.float32)
-_near = np.zeros((H, W), np.float32); _near[:, :int(round((PIPE_FACE_X + 4.0) * AS))] = 1.0     # seulement le long de la tranche gauche
-body = np.where(_near > 0, np.minimum(body * (1.0 - notch), _open), body * (1.0 - notch))
-del _rest, _ero, _d, _open, _near
+# maquette v003 : le bevel rond fait tout le tour, les tubes passent par-dessus la tranche gauche (sans encoche)
 body = np.maximum(body, PM)
 # distance au bord du tube (le bout coupe sur la tranche n'a pas de bevel)
 ext = (PM8 > 127).astype(np.uint8)
