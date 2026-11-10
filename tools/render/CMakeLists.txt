@@ -1,6 +1,6 @@
 # Outil hors plugin : compile le processeur + la fenetre d'Eight Echo sous Linux et exporte des captures PNG (apercu, notice)
 cmake_minimum_required(VERSION 3.22)
-project(EightEchoRender VERSION 2.0.0)
+project(EightEchoRender VERSION 2.0.1)
 set(CMAKE_CXX_STANDARD 17)
 add_subdirectory(${JUCE_DIR} JUCE)
 set(W ${CMAKE_CURRENT_SOURCE_DIR}/../..)
@@ -17,7 +17,7 @@ target_sources(EightEchoRender PRIVATE main.cpp ${W}/PluginProcessor.cpp ${W}/Pl
 target_include_directories(EightEchoRender PRIVATE ${W})
 target_compile_definitions(EightEchoRender PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 JUCE_ALSA=0 JUCE_JACK=0
   JUCE_USE_XRANDR=0 JUCE_USE_XINERAMA=0 JUCE_USE_XCURSOR=0 JUCE_USE_XSHM=0 JUCE_USE_XRENDER=0
-  JucePlugin_Name="Eight Echo" JucePlugin_Build_VST3=0 JucePlugin_VersionString="2.0.0"
+  JucePlugin_Name="Eight Echo" JucePlugin_Build_VST3=0 JucePlugin_VersionString="2.0.1"
   JucePlugin_IsSynth=0 JucePlugin_WantsMidiInput=1 JucePlugin_ProducesMidiOutput=0 JucePlugin_IsMidiEffect=0
   JUCE_STANDALONE_APPLICATION=1 JUCE_MODAL_LOOPS_PERMITTED=1)
 target_link_libraries(EightEchoRender PRIVATE EightEchoRenderData juce::juce_audio_utils juce::juce_dsp juce::juce_recommended_config_flags)

@@ -110,6 +110,7 @@ T = {
        "<b>Carryover</b> (trails when bypassed) – les répétitions continuent après le bypass.",
        "<b>SYNC</b> – identique au bouton SYNC.",
        "<b>Expression pedal (EXP parameter)</b> – choisit les potards pilotés par la commande EXP (E.LEVEL, FEEDBACK, TIME). Le potard fixe le maximum, la pédale va du minimum à ce maximum, comme sur l'original.",
+       "<b>Glow</b> – intensité de la lumière des tubes de mémoire, des LED, de SYNC et de X2 sur la plaque : 25 %, 50 %, 75 % ou 100 % (par défaut). Réglage sauvegardé avec le projet.",
        "<b>Cancel MIDI learn</b> pendant l'attente d'un CC, et <b>Clear all MIDI assignments</b> dès qu'une commande est assignée (section 14).",
        "<b>Plugin size</b> – 60 %, 75 %, 100 % pour cette fenêtre, « (default) » à côté de la taille par défaut ; puis <b>Default size (new windows)</b> : la taille d'ouverture de toutes les nouvelles fenêtres d'Eight Echo (voir Fenêtre ci-dessous)."],
  win_h="Fenêtre",

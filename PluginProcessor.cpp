@@ -605,6 +605,7 @@ void EightEchoProcessor::setCurrentProgram (int index)
 void EightEchoProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
     auto state = apvts.copyState();
+    state.setProperty ("glow", glowLevel.load(), nullptr);
     if (uiScale.load() > 0.0f) state.setProperty ("uiScale", uiScale.load(), nullptr);   // sinon : taille par defaut choisie
     else                       state.removeProperty ("uiScale", nullptr);
     state.setProperty ("tapMs", tapQuarterMs, nullptr);
@@ -628,7 +629,8 @@ void EightEchoProcessor::setStateInformation (const void* data, int sizeInBytes)
         if (xml->hasTagName (apvts.state.getType()))
         {
             auto vt = juce::ValueTree::fromXml (*xml);
-            uiScale = (float) (double) vt.getProperty ("uiScale", -1.0);   // absente : taille par defaut choisie
+            uiScale = (float) (double) vt.getProperty ("uiScale", -1.0);
+            glowLevel = juce::jlimit (0.25f, 1.0f, (float) (double) vt.getProperty ("glow", 1.0));   // absente : taille par defaut choisie
             tapQuarterMs = (float) (double) vt.getProperty ("tapMs", 0.0);
             tapOverride = (bool) vt.getProperty ("tapOn", false);
             currentProgram = (int) vt.getProperty ("program", 0);

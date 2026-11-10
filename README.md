@@ -40,7 +40,7 @@ et publie la Release (fichiers à nom fixe, notice comprise) à chaque push sur 
 
 **Clic droit** (réglages cachés de la DD-8) : presets d'usine (chargés dans la mémoire en cours), mode stéréo
 (Independent / Wide / Panning), division du tap, sauvegarde en mémoire 1-7, carryover, SYNC, affectation de la pédale d'expression
-(paramètre EXP), Plugin size (60 % / 75 % / 100 %, comme Textural et Freeze Shimmer ; « (default) » marque la taille par défaut choisie). Plugin size > Default size (new windows) : taille d'ouverture des nouvelles fenêtres (toutes les instances, comme dans Octopus), appliquée aussi tout de suite à la fenêtre ouverte ; une taille changée sur une instance est sauvegardée avec le projet et reprise à sa réouverture. La fenêtre (pédale plein cadre) ne peut jamais être réduite sous 60 % ; elle va jusqu'à 150 %.
+(paramètre EXP), Glow (25 / 50 / 75 / 100 %), Plugin size (60 % / 75 % / 100 %, comme Textural et Freeze Shimmer ; « (default) » marque la taille par défaut choisie). Plugin size > Default size (new windows) : taille d'ouverture des nouvelles fenêtres (toutes les instances, comme dans Octopus), appliquée aussi tout de suite à la fenêtre ouverte ; une taille changée sur une instance est sauvegardée avec le projet et reprise à sa réouverture. La fenêtre (pédale plein cadre) ne peut jamais être réduite sous 60 % ; elle va jusqu'à 150 %.
 
 Tout est automatisable / assignable en MIDI dans Reaper (footswitch, tap, twist compris).
 
@@ -172,5 +172,8 @@ Looper : Looper
 - Nom du mode choisi en bleu ; X2 et ses traits s'allument avec une lueur sur la plaque.
 - `tools/render` : captures de la vraie fenêtre (aperçu, notice).
 
+## Version 2.0.1
+- Clic droit › **Glow** : intensité de la lumière des tubes, LED, SYNC et X2 sur la plaque (25 / 50 / 75 / 100 %), sauvegardée avec le projet.
+
 ## Notice
-- `docs/EightEcho_Notice_FR_v2.0.0.pdf` (français). Générateur : `python3 tools/manual.py <captures tools/render> <sortie.pdf>` (textes dans `tools/manual_text.py`, schémas dans `tools/manual/`, illustrations tirées des captures du plugin).
+- `docs/EightEcho_Notice_FR_v2.0.1.pdf` (français). Générateur : `python3 tools/manual.py <captures tools/render> <sortie.pdf>` (textes dans `tools/manual_text.py`, schémas dans `tools/manual/`, illustrations tirées des captures du plugin).

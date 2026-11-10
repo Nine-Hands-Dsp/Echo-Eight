@@ -738,15 +738,16 @@ void PedalView::paint (Graphics& g)
     // lumieres sur la facade (sous la serigraphie)
     const int cur = proc.getCurrentSlot();
     float led[7];
-    for (int i = 0; i < 7; ++i) { led[i] = ledBrightness (i, cur); drawAt (g, glowSlot[(size_t) i], layout::glowSlot[i], led[i]); }
+    const float gl = proc.glowLevel.load();     // menu Glow : intensite des halos sur la plaque
+    for (int i = 0; i < 7; ++i) { led[i] = ledBrightness (i, cur); drawAt (g, glowSlot[(size_t) i], layout::glowSlot[i], led[i] * gl); }
     const float tempo = tempoAmount();
-    drawAt (g, glowTempo, layout::glow_tempo, tempo);
+    drawAt (g, glowTempo, layout::glow_tempo, tempo * gl);
     const auto cc = checkColour();
     const bool green = cc == Colour (0xff3dff7a), orange = cc == Colour (0xffffa424);
-    if (! cc.isTransparent()) drawAt (g, green ? glowGreen : orange ? glowOrange : glowRed, layout::glow_check_red, 1.0f);
+    if (! cc.isTransparent()) drawAt (g, green ? glowGreen : orange ? glowOrange : glowRed, layout::glow_check_red, gl);
     const float sa = syncParam ? syncAlpha() : 0.0f;
-    drawAt (g, glowSync, layout::glow_sync, sa);
-    if (longOn) drawAt (g, glowX2, layout::glow_x2, 1.0f);
+    drawAt (g, glowSync, layout::glow_sync, sa * gl);
+    if (longOn) drawAt (g, glowX2, layout::glow_x2, gl);
 
     // serigraphie (cache) ; en attendant le cache, les inscriptions seules
     g.setImageResamplingQuality (Graphics::lowResamplingQuality);
@@ -1009,6 +1010,9 @@ void EightEchoEditor::showMenu (int learnTarget)
     m.addItem (601, "Carryover (trails when bypassed)", true, val ("carryover") > 0.5f);
     m.addItem (602, "SYNC: delay locked to host tempo", true, val ("sync") > 0.5f);
     m.addSubMenu ("Expression pedal (EXP parameter)", exp);
+    PopupMenu glowM;
+    for (int i = 1; i <= 4; ++i) glowM.addItem (540 + i, String (i * 25) + " %", true, std::abs (proc.glowLevel.load() - 0.25f * (float) i) < 0.01f);
+    m.addSubMenu ("Glow", glowM);
     m.addSeparator();
     if (anyCc) m.addItem (897, "Clear all MIDI assignments");
     m.addSubMenu ("Plugin size", size);
@@ -1036,6 +1040,7 @@ void EightEchoEditor::showMenu (int learnTarget)
             WigaWindowSize::setDefaultIndex (JucePlugin_Name, r - 520);   // toutes les nouvelles fenetres de ce plugin
             ed.setScaledHeight (sizeHeight (r - 520));                    // et cette fenetre tout de suite
         }
+        else if (r >= 541 && r <= 544) { pr.glowLevel.store (0.25f * (float) (r - 540)); ed.pedal.repaint(); }
         else if (r >= 700 && r < 700 + EightEchoProcessor::kNumSlots) ed.pedal.saveToSlot (r - 700);
         else if (r == 601) toggle ("carryover");
         else if (r == 602) toggle ("sync");

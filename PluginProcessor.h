@@ -61,6 +61,7 @@ public:
     std::atomic<bool>  glitching { false };
 
     // Echelle de la fenetre (memorisee avec le projet)
+    std::atomic<float> glowLevel { 1.0f };  // intensite des halos (menu Glow : 25 / 50 / 75 / 100 %)
     std::atomic<float> uiScale { -1.0f };   // -1 = pas de taille propre a cette instance (taille par defaut choisie)
 
     static const juce::StringArray& tapDivisionNames();
