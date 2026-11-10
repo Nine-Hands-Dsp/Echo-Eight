@@ -39,6 +39,8 @@ paste_rect('glow_slot1.png', G['slot0']); paste_rect('glow_sync.png', G['sync'])
 K = S * SS
 ink = Image.new('L', (Wp * SS, Hp * SS), 0); dr = ImageDraw.Draw(ink)
 inkx = Image.new('L', (Wp * SS, Hp * SS), 0); drx = ImageDraw.Draw(inkx)     # X2 allume (couleur glace)
+inks = Image.new('L', (Wp * SS, Hp * SS), 0); drs = ImageDraw.Draw(inks)     # mode choisi (bleu un peu plus marque)
+MODE_SEL = (172, 214, 250)
 
 def text(s, font, em, track, x, y, rot, d=None, im=None):
     d = d or dr; im = im or ink
@@ -75,7 +77,7 @@ for i, nm in enumerate(pj['modeNames']):
     px, py = kn[0] + pj['modeLabelR'] * math.sin(a), kn[1] - pj['modeLabelR'] * math.cos(a)
     anchor = 'lm' if s_ > 0.3 else ('rm' if s_ < -0.3 else 'mm')
     if anchor == 'mm': py -= pj['modeFont'] * 0.45
-    (drx if i == 2 else dr).text((px * K, py * K), nm, font=fm, fill=255, anchor=anchor)
+    (drs if i == 2 else dr).text((px * K, py * K), nm, font=fm, fill=255, anchor=anchor)
 
 # ------------------------------------------------------------------ chemins SVG (motif d'anneaux, logo) : petit lecteur M/L/H/V/C/S/A/Z
 def svg_paths(fn):
@@ -178,7 +180,7 @@ def comp(col, a):
     cv[..., :3] = cv[..., :3] * (1 - a[..., None]) + col * a[..., None]
 # le motif epouse la forme des inscriptions : il s'arrete a 8 px (image 1800) du contour de chaque texte, triangle,
 # titre, X2 et logo (marge = contour du texte agrandi de 8 px) ; les footswitches passent simplement par-dessus
-allink = np.maximum.reduce([np.asarray(ink), np.asarray(inkx), (logo_a * 255).astype(np.uint8)])
+allink = np.maximum.reduce([np.asarray(ink), np.asarray(inkx), np.asarray(inks), (logo_a * 255).astype(np.uint8)])
 rk = int(round(pj['knockMargin'] * S * SS))
 kern = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2 * rk + 1, 2 * rk + 1))
 knock = cv2.dilate((allink > 100).astype(np.uint8), kern).astype(np.float32)
@@ -188,6 +190,7 @@ mot_a = down(motif_a) * 0.95; mot_c = down(motif * motif_a[..., None]) / np.maxi
 comp(mot_c, mot_a)
 comp(np.array(SILK, np.float32), down(np.asarray(ink, np.float32) / 255.0))
 comp(np.array([215, 238, 255], np.float32), down(np.asarray(inkx, np.float32) / 255.0))
+comp(np.array(MODE_SEL, np.float32), down(np.asarray(inks, np.float32) / 255.0))
 la = down(logo_a); comp(down(logo * logo_a[..., None]) / np.maximum(la, 1e-4)[..., None], la * 0.94)
 canvas = Image.fromarray(np.clip(cv, 0, 255).astype(np.uint8), 'RGBA')
 

@@ -1,13 +1,16 @@
 #pragma once
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "PluginProcessor.h"
+#include "Layout.h"
+#include "NineHandsMenu.h"
 #include <array>
 
 // =============================================================================
-//  Interface Eight Echo (NINE HANDS | DSP) sur le visuel fourni.
-//  L'image de fond (background.png) est la pedale sans potards ni LED :
-//  tous les elements actifs sont redessines en vectoriel par-dessus.
-//  Coordonnees de dessin = pixels de l'image (578 x 896), mises a l'echelle.
+//  Interface Eight Echo v2 (NINE HANDS | DSP) : pedale plein cadre (fond 1235 x 1800 px).
+//  Repere de dessin = repere du plugin (Layout.h, 617,5 x 900 unites), mis a l'echelle de la fenetre.
+//  Fond (boitier, potards, jacks, LED eteintes) en image ; serigraphie (textes, graduations, titre, X2, motif
+//  d'anneaux qui s'arrete autour des inscriptions, logo) dessinee en vectoriel dans un cache a la resolution de l'ecran ;
+//  lumieres (tubes des memoires, LED, SYNC, X2) en calques alpha precalcules ; pastille presets / ligne d'etat.
 // =============================================================================
 
 class PedalView : public juce::Component, private juce::Timer
@@ -16,19 +19,25 @@ public:
     explicit PedalView (EightEchoProcessor&);
     ~PedalView() override;
 
-    static constexpr float imgW = 578.0f, imgH = 896.0f;
+    static constexpr float imgW = layout::frameW, imgH = layout::frameH;
 
     void paint (juce::Graphics&) override;
     void mouseDown (const juce::MouseEvent&) override;
     void mouseDrag (const juce::MouseEvent&) override;
     void mouseUp (const juce::MouseEvent&) override;
-    void saveToSlot (int i);
     void mouseDoubleClick (const juce::MouseEvent&) override;
     void mouseWheelMove (const juce::MouseEvent&, const juce::MouseWheelDetails&) override;
     void mouseMove (const juce::MouseEvent&) override;
+    void mouseExit (const juce::MouseEvent&) override;
+    void saveToSlot (int i);
     int  learnIndexAt (juce::Point<float>) const;   // commande apprenable sous la souris (-1 = aucune)
+    void rebuildCaches (float pixelsPerUnit);       // appele par le timer de l'editeur seulement (anti-gel)
+    bool cachesValid() const { return bgCache.isValid(); }
+    void showStatus (double ms = 2500.0);
+    juce::String presetLine() const;
 
     std::function<void (const juce::MouseEvent&)> onBackgroundRightClick;
+    std::function<void()> onPresetMenu;
     std::function<void()> onTimerTick;      // appele a chaque tic du timer de l'interface (anti-gel Windows)
     std::function<void()> onRepaintStuck;   // chien de garde (anti-gel v2) : un redessin demande n'est pas arrive
 
@@ -40,8 +49,15 @@ private:
     };
 
     EightEchoProcessor& proc;
-    juce::Image bg, x2On, syncOn, ledsOn, lensIce, lensRed, lensGreen, lensOrange;
-    std::array<juce::Image, 5> pointers;
+    juce::Image bg, footswitch, pipeOn, ledIce, ledRed, ledGreen, ledOrange, syncOn;
+    juce::Image glowTempo, glowRed, glowGreen, glowOrange, glowSync, glowX2;
+    std::array<juce::Image, 7> glowSlot;
+    juce::Typeface::Ptr sansFace, monoFace, popMed;
+    std::unique_ptr<juce::Drawable> logo, motif, title;
+    juce::Path printPath, x2Path, knockPath;
+    juce::Image bgCache, printCache;               // caches a la resolution de l'ecran (refaits par le timer)
+    float cachePpu = 0.0f;
+
     std::vector<Knob> knobs;
     std::unique_ptr<juce::ParameterAttachment> longAtt, syncAtt;
     bool longOn = false, syncParam = false;
@@ -54,52 +70,46 @@ private:
     int slotPress = -1; double slotPressTime = 0; bool slotSaved = false;
     int flashSlot = -1; float flashStart = 0;
     float anim = 0;
-    // ligne d'etat : n'apparait que quand une information change, puis s'efface
-    juce::String lastStatus; float statusShownAt = -100.0f;
-    // MIDI Learn : "<COMMANDE> = CC n" affiche 2 s apres un apprentissage
-    juce::String learnedText; float learnedAt = -100.0f;
+    int hoverZone = 0, drawnHover = -1;            // pastille : 1 fleche gauche, 2 nom, 3 fleche droite
+
+    // pastille : barre de presets au repos, ligne d'etat pendant un reglage
+    juce::String statusText, drawnStatusText { "\x01" }, presetText, drawnPreset { "\x01" };
+    double statusUntil = 0.0;
+    float statusAlpha = 0.0f, drawnStatusAlpha = -1.0f;
+    std::array<float, 9> lastVals {};
+    int lastChanged = -1, lastLooper = -1;
+    juce::String learnedText; double learnedUntil = 0.0;
 
     // dernier etat reellement dessine : on ne redessine une zone que si elle a change
     std::array<float, 7> drawnLed { -1.0f, -1.0f, -1.0f, -1.0f, -1.0f, -1.0f, -1.0f };
-    float drawnSync = -1.0f, drawnTempo = -1.0f, drawnStatusAlpha = -1.0f;
+    float drawnSync = -1.0f, drawnTempo = -1.0f;
     juce::uint32 drawnCheck = 0x12345678;
-    juce::String drawnStatus { "\x01" };
     // anti-gel v2 : suivi des redessins demandes par le timer (chien de garde)
     double lastPaintMs = 0.0, repaintAskedMs = 0.0;
-    void askRepaint (juce::Rectangle<int> r);
-
-    // geometrie (pixels de l'image)
-    const juce::Point<float> cTap { 143, 775 }, cBypass { 438, 775 }, cX2 { 290, 778 };
-    const juce::Point<float> cSync { 204, 491.5f }, cLedTempo { 144.5f, 621.1f }, cLedCheck { 434.2f, 620.2f };
-    const juce::Point<float> cPrev { 141, 679 }, cNext { 436, 676 };
-    float slotY (int i) const { const float ys[] = { 124, 175, 228, 279, 331, 383, 435 }; return ys[i]; }
+    void askRepaint (juce::Rectangle<float> r);
 
     void timerCallback() override;
+    void buildPrint();
     int  knobAt (juce::Point<float>) const;
     int  modeLabelAt (juce::Point<float>) const;
     int  slotAt (juce::Point<float>) const;
-    juce::Point<float> modeLabelPos (int i) const;
+    int  presetZoneAt (juce::Point<float>) const;
     juce::Rectangle<float> modeLabelRect (int i, juce::Justification& just) const;
     static float modeAngle (int i) { return juce::degreesToRadians (-135.0f + 27.0f * (float) i); }
+    bool onFootswitch (juce::Point<float> p, juce::Point<float> c) const { return p.getDistanceFrom (c) < layout::footR * 1.35f; }
 
     void setParam (const char* id, float v);
-    void drawKnob (juce::Graphics&, const Knob&);
-    void drawLedPipe (juce::Graphics&, int slot, float brightness);
-    void drawLens (juce::Graphics&, bool left, const juce::Image* lit, float amount);
-    juce::String statusLine() const;
+    void drawKnobPointer (juce::Graphics&, const Knob&);
+    void drawPill (juce::Graphics&);
+    juce::String buildStatus() const;
     juce::Colour checkColour() const;
-    // valeurs affichees (communes au dessin et a la detection de changement du timer)
-    float ledBrightness (int slot, int cur, bool dirty) const;
+    float ledBrightness (int slot, int cur) const;
     float beatFlash() const;
     float syncAlpha() const;
     float tempoAmount() const;
-    float statusVisibility() const;
 };
 
-// Contrainte de taille stricte : jamais plus petit que la taille par defaut, quel que soit
-// le chemin du redimensionnement (coin de la fenetre, bord, hote VST3/AU, restauration du projet).
-// JUCE applique le rapport largeur/hauteur APRES les limites, ce qui peut faire passer sous le minimum :
-// on recadre donc une seconde fois, en gardant le rapport.
+// Contrainte de taille stricte : jamais plus petit que la taille par defaut, proportions bloquees.
 class StrictMinConstrainer : public juce::ComponentBoundsConstrainer
 {
 public:
@@ -113,9 +123,8 @@ public:
             if (left) b.setLeft (b.getRight() - mw); else b.setWidth (mw);
             if (top)  b.setTop (b.getBottom() - mh); else b.setHeight (mh);
         }
-        // rapport fixe : la hauteur suit toujours la largeur (jamais en dessous du minimum)
-        const int h = juce::roundToInt ((double) b.getWidth() * (double) mh / (double) mw);
-        if (top) b.setTop (b.getBottom() - h); else b.setHeight (h);
+        const int w = juce::roundToInt ((double) b.getHeight() * (double) layout::frameW / (double) layout::frameH);
+        if (left) b.setLeft (b.getRight() - w); else b.setWidth (w);
     }
 };
 
@@ -123,44 +132,37 @@ class EightEchoEditor : public juce::AudioProcessorEditor
 {
 public:
     explicit EightEchoEditor (EightEchoProcessor&);
-    ~EightEchoEditor() override = default;
+    ~EightEchoEditor() override;
     void paint (juce::Graphics&) override;
     void resized() override;
     void parentHierarchyChanged() override;
     void visibilityChanged() override;
-    void mouseDown (const juce::MouseEvent&) override;
 
-    // Taille par defaut = taille minimale (impossible de reduire en dessous).
-    // Calee sur Freeze Shimmer : fenetre 390 x 494, boitier de la pedale haut de 465 px, 14 px sous le bord.
-    // 100 % = 2000 px de haut (memes paliers que Textural / Freeze Shimmer).
-    static constexpr int baseW = 390, baseH = 494;
-    static constexpr int refH = 2000, refW = (refH * baseW + baseH / 2) / baseH;
-    static constexpr float maxScale = (float) refH / (float) baseH;
+    // Pedale simple NINE HANDS | DSP : fenetre = pedale plein cadre. Hauteurs : 493 (defaut, « 60 % ») / 719 / 958, jusqu'a 150 %.
+    static constexpr int defaultH = 493, refH = 958, maxH = refH * 3 / 2;
+    static constexpr int numSizes = 3;
+    static int sizeHeight (int idx);
+    void setScaledHeight (int h);
+    void forceRenderScale (float sc) { forcedScale = sc; rebuildCaches (sc); }   // captures (outil de rendu)
 
 private:
     EightEchoProcessor& proc;
     PedalView pedal;
     StrictMinConstrainer constrainer;
+    NineHandsMenu::MenuLnf menuLnf;
+    juce::Typeface::Ptr popReg, popMed, popBold;
     void useSoftwareRenderer();
     void tick();                                   // appele par le timer de la pedale (30 Hz)
     void rebuildCaches (float scale = 0.0f);
     float physicalScale() const;
-    void drawBackdrop (juce::Graphics&) const;     // fond, motifs et ombre (dessines dans le cache)
     void showMenu (int learnTarget = -1);          // learnTarget >= 0 : clic droit sur une commande
-    void setScale (float s);
-    static constexpr int numSizes = 3;             // 60 % (defaut d'origine) / 75 % / 100 %
-    static float sizeScale (int idx);
-    float openScale = -1.0f;                       // taille par defaut choisie a l'ouverture (non retenue avec le projet tant qu'inchangee)
-    juce::Rectangle<float> pedalArea() const;      // emplacement de la pedale (coordonnees taille par defaut)
-    float currentScale() const { return juce::jmax (1.0f, (float) getWidth() / (float) baseW); }
-
-    // anti-gel v2 : fond de la fenetre en cache (refait par le timer), suivi de la fenetre hote et de l'echelle
-    juce::Image bgCache;
-    int cacheW = 0, cacheH = 0;
-    float cacheScale = 0.0f;
+    void showPresetMenu();
+    float forcedScale = 0.0f, cacheScale = 0.0f;
+    int cacheH = 0;
     int resizeSettle = 0;
     void* lastPeer = nullptr;
     double lastScaleCheckMs = 0.0, lastRendererCheckMs = 0.0;
+    bool sizeFromProject = false;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (EightEchoEditor)
 };

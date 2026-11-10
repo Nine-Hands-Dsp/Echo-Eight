@@ -262,7 +262,7 @@ void EightEchoProcessor::initSlots()
     const char* names[kNumSlots] = { "Bread & Butter", "BBD Crunch Lead", "Floating Tape Solo", "Echo Hall", "Heaven Swell", "Lush Chorus Echo", "Backwards Solo" };
     for (int s = 0; s < kNumSlots; ++s)
     {
-        juce::ValueTree t ("SLOT"); t.setProperty ("index", s, nullptr);
+        juce::ValueTree t ("SLOT"); t.setProperty ("index", s, nullptr); t.setProperty ("name", names[s], nullptr);
         for (int k = 0; k < kNumPresets; ++k)
             if (juce::String (kPresets[k].name) == names[s])
             {
@@ -282,6 +282,7 @@ void EightEchoProcessor::loadSlot (int i)
     if (! juce::isPositiveAndBelow (i, kNumSlots)) return;
     currentSlot = i;
     const auto& t = slots[(size_t) i];
+    currentName = getSlotName (i);
     for (auto& id : slotParamIds())
         if (t.hasProperty (id))
             if (auto* par = apvts.getParameter (id))
@@ -292,12 +293,19 @@ void EightEchoProcessor::loadSlot (int i)
 void EightEchoProcessor::saveSlot (int i)
 {
     if (! juce::isPositiveAndBelow (i, kNumSlots)) return;
-    juce::ValueTree t ("SLOT"); t.setProperty ("index", i, nullptr);
+    juce::ValueTree t ("SLOT"); t.setProperty ("index", i, nullptr); t.setProperty ("name", currentName, nullptr);
     for (auto& id : slotParamIds())
         if (auto* par = apvts.getParameter (id))
             t.setProperty (id, par->convertFrom0to1 (par->getValue()), nullptr);
     slots[(size_t) i] = t;
     currentSlot = i;
+}
+
+juce::String EightEchoProcessor::getSlotName (int i) const
+{
+    if (! juce::isPositiveAndBelow (i, kNumSlots)) return {};
+    const auto n = slots[(size_t) i].getProperty ("name").toString();
+    return n.isNotEmpty() ? n : juce::String ("Memory ") + juce::String (i + 1);
 }
 
 bool EightEchoProcessor::slotMatchesCurrent (int i) const
@@ -587,6 +595,7 @@ void EightEchoProcessor::setCurrentProgram (int index)
     if (! juce::isPositiveAndBelow (index, kNumPresets)) return;
     currentProgram = index;
     const auto& pr = kPresets[index];
+    currentName = pr.name;
     auto set = [this] (const char* id, float v) { if (auto* par = apvts.getParameter (id)) par->setValueNotifyingHost (par->convertTo0to1 (v)); };
     set ("mode", (float) pr.mode); set ("elevel", pr.level); set ("feedback", pr.feedback); set ("time", pr.time); set ("stereo", (float) pr.stereo);
     set ("long", pr.longMode ? 1.0f : 0.0f); set ("division", (float) pr.division); set ("drykill", 0.0f); set ("mix", 0.5f);
@@ -602,6 +611,7 @@ void EightEchoProcessor::getStateInformation (juce::MemoryBlock& destData)
     state.setProperty ("tapOn", tapOverride, nullptr);
     state.setProperty ("program", currentProgram, nullptr);
     state.setProperty ("slot", currentSlot, nullptr);
+    state.setProperty ("presetName", currentName, nullptr);
     for (int i = 0; i < kNumLearn; ++i)
         state.setProperty (juce::String ("midiCC_") + learnable (i).id, ccNum[i].load(), nullptr);
     state.setProperty ("midiMap", 2, nullptr);          // 2 = assignations faites uniquement par MIDI Learn
@@ -634,6 +644,7 @@ void EightEchoProcessor::setStateInformation (const void* data, int sizeInBytes)
                 for (int k = 0; k < sl.getNumChildren() && k < kNumSlots; ++k) slots[(size_t) k] = sl.getChild (k).createCopy();
                 vt.removeChild (sl, nullptr);
             }
+            currentName = vt.getProperty ("presetName", getSlotName (currentSlot)).toString();
             knobAtTap = (float) (double) vt.getChildWithProperty ("id", "time").getProperty ("value", 0.5);
             apvts.replaceState (vt);
             // les commandes momentanees ne doivent jamais rester enfoncees apres un rechargement
