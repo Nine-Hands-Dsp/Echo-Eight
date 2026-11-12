@@ -154,6 +154,8 @@ void EightEchoProcessor::timerCallback()
         if (pendingSet[i].exchange (false, std::memory_order_acquire))
             if (auto* prm = apvts.getParameter (queuedId (i)))
                 prm->setValueNotifyingHost (prm->convertTo0to1 (pendingValue[i].load (std::memory_order_relaxed)));
+    const int pc = pendingProgram.exchange (-1);
+    if (pc >= 0 && pc < getNumPrograms()) setCurrentProgram (pc);   // Program Change = presets d'usine
 
     // PREV / NEXT MEMORY recus en MIDI : rappel de la memoire ici (thread de messages)
     if (const int step = pendingSlotStep.exchange (0); step != 0)
@@ -202,6 +204,7 @@ void EightEchoProcessor::handleMidi (juce::MidiBuffer& midi)
     for (const auto meta : midi)
     {
         const auto msg = meta.getMessage();
+        if (msg.isProgramChange()) { pendingProgram.store (msg.getProgramChangeNumber()); continue; }
         if (! msg.isController()) continue;
         const int cc = msg.getControllerNumber(), v = msg.getControllerValue();
 
@@ -230,7 +233,11 @@ void EightEchoProcessor::handleMidi (juce::MidiBuffer& midi)
                 case kToggle:     setParamFromAudio (d.id, high ? 1.0f : 0.0f); break;
                 case kSelector:   setParamFromAudio (d.id, (float) juce::jmin (kNumModes - 1, v * kNumModes / 128)); break;
                 case kFootswitch:
-                    if (std::strcmp (d.id, "footswitch") == 0) { ccFsDown = high; ccFsHit = ccFsHit || high; }
+                    if (std::strcmp (d.id, "footswitch") == 0)
+                    {
+                        if (midiFsLatching.load (std::memory_order_relaxed)) { if (high != (ccPrevValue[i] >= 64)) ccFsHit = true; }   // latching : chaque changement = un appui
+                        else { ccFsDown = high; ccFsHit = ccFsHit || high; }                                                             // momentary : tenu tant que CC >= 64
+                    }
                     else
                     {
                         if (high && ! ccTapDown) ccTapPressSample = sampleClock + meta.samplePosition;
@@ -608,6 +615,8 @@ void EightEchoProcessor::getStateInformation (juce::MemoryBlock& destData)
     state.setProperty ("glow", glowLevel.load(), nullptr);
     if (uiScale.load() > 0.0f) state.setProperty ("uiScale", uiScale.load(), nullptr);   // sinon : taille par defaut choisie
     else                       state.removeProperty ("uiScale", nullptr);
+    state.setProperty ("uiSize", uiSizeIdx.load(), nullptr);
+    state.setProperty ("midiFsLatching", midiFsLatching.load(), nullptr);
     state.setProperty ("tapMs", tapQuarterMs, nullptr);
     state.setProperty ("tapOn", tapOverride, nullptr);
     state.setProperty ("program", currentProgram, nullptr);
@@ -630,6 +639,15 @@ void EightEchoProcessor::setStateInformation (const void* data, int sizeInBytes)
         {
             auto vt = juce::ValueTree::fromXml (*xml);
             uiScale = (float) (double) vt.getProperty ("uiScale", -1.0);
+            {
+                // v2.1 : taille du menu ; projet plus ancien : sa taille si c'est une des trois tailles du menu
+                int idx = -1;
+                const int hs[3] = { 493, 719, 958 };
+                const int h = juce::roundToInt (uiScale.load() * 493.0f);
+                for (int i = 0; i < 3; ++i) if (uiScale.load() > 0.0f && std::abs (h - hs[i]) <= 2) idx = i;
+                uiSizeIdx = juce::jlimit (-1, 2, (int) vt.getProperty ("uiSize", idx));
+            }
+            midiFsLatching = (bool) vt.getProperty ("midiFsLatching", false);
             glowLevel = juce::jlimit (0.25f, 1.0f, (float) (double) vt.getProperty ("glow", 1.0));   // absente : taille par defaut choisie
             tapQuarterMs = (float) (double) vt.getProperty ("tapMs", 0.0);
             tapOverride = (bool) vt.getProperty ("tapOn", false);

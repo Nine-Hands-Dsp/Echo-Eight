@@ -62,6 +62,9 @@ public:
 
     // Echelle de la fenetre (memorisee avec le projet)
     std::atomic<float> glowLevel { 1.0f };  // intensite des halos (menu Glow : 25 / 50 / 75 / 100 %)
+    std::atomic<int>   uiSizeIdx { -1 };    // v2.1 : taille choisie au menu pour ce projet (0..2), -1 = taille par defaut choisie
+    std::atomic<bool>  midiFsLatching { false };
+    std::atomic<int>   pendingProgram { -1 };   // Program Change recu (thread audio), applique par le timer   // footswitch MIDI : true = latching (chaque 127 / 0 = un appui), false = tenu tant que CC >= 64
     std::atomic<float> uiScale { -1.0f };   // -1 = pas de taille propre a cette instance (taille par defaut choisie)
 
     static const juce::StringArray& tapDivisionNames();

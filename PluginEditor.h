@@ -3,6 +3,7 @@
 #include "PluginProcessor.h"
 #include "Layout.h"
 #include "NineHandsMenu.h"
+#include "NineHandsWindow.h"
 #include <array>
 
 // =============================================================================
@@ -150,12 +151,17 @@ private:
     PedalView pedal;
     StrictMinConstrainer constrainer;
     NineHandsMenu::MenuLnf menuLnf;
+    NineHandsWindow::HostLock hostLock;    // fenetre du DAW : jamais sous 60 %, jamais au-dela de 150 %
+    double lastGlowReadMs = 0.0;
     juce::Typeface::Ptr popReg, popMed, popBold;
     void useSoftwareRenderer();
     void tick();                                   // appele par le timer de la pedale (30 Hz)
     void rebuildCaches (float scale = 0.0f);
     float physicalScale() const;
-    void showMenu (int learnTarget = -1);          // learnTarget >= 0 : clic droit sur une commande
+    void showMenu (int learnTarget = -1);
+public:
+    juce::PopupMenu buildContextMenu (int learnTarget = -1);   // menu clic droit (aussi pour l'outil de controle des menus)
+private:          // learnTarget >= 0 : clic droit sur une commande
     void showPresetMenu();
     float forcedScale = 0.0f, cacheScale = 0.0f;
     int cacheH = 0;

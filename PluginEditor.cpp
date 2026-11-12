@@ -796,6 +796,7 @@ EightEchoEditor::EightEchoEditor (EightEchoProcessor& p) : AudioProcessorEditor 
     popMed  = Typeface::createSystemTypefaceFor (BinaryData::PoppinsMedium_ttf, BinaryData::PoppinsMedium_ttfSize);
     popBold = Typeface::createSystemTypefaceFor (BinaryData::PoppinsBold_ttf, BinaryData::PoppinsBold_ttfSize);
     menuLnf.f = { popReg, popMed, popBold };
+    proc.glowLevel = (float) NineHandsGlow::percent (JucePlugin_Name) / 100.0f;   // Glow intensity : commun a toutes les fenetres (settings.xml)
     setLookAndFeel (&menuLnf);
 
     addAndMakeVisible (pedal);
@@ -812,11 +813,10 @@ EightEchoEditor::EightEchoEditor (EightEchoProcessor& p) : AudioProcessorEditor 
     constrainer.setFixedAspectRatio ((double) layout::frameW / (double) layout::frameH);
     constrainer.setMinimumOnscreenAmounts (0x10000, 0x10000, 0x10000, 0x10000);
     setConstrainer (&constrainer);
+    hostLock.setLimits (defW, defaultH, roundToInt ((float) maxH * layout::frameW / layout::frameH), maxH);
     setOpaque (true);                      // anti-gel : l'hote ne redessine jamais ce qui est derriere la fenetre
     // taille : celle du projet pour cette instance si elle existe, sinon celle choisie dans « Default size (new windows) »
-    const float saved = proc.uiScale.load();
-    sizeFromProject = saved > 0.0f;
-    const int h = saved > 0.0f ? roundToInt (saved * (float) defaultH) : sizeHeight (WigaWindowSize::defaultIndex (JucePlugin_Name, numSizes));
+    const int h = sizeHeight (NineHandsWindow::openIndex (JucePlugin_Name, proc.uiSizeIdx.load(), numSizes));
     setScaledHeight (h);
     rebuildCaches();
 }
@@ -837,6 +837,7 @@ void EightEchoEditor::setScaledHeight (int h)
 {
     h = jlimit (defaultH, maxH, h);
     setSize (roundToInt ((float) h * layout::frameW / layout::frameH), h);
+    hostLock.enforce();
 }
 
 //==============================================================================
@@ -861,7 +862,7 @@ void EightEchoEditor::useSoftwareRenderer()
    #endif
 }
 
-void EightEchoEditor::parentHierarchyChanged() { useSoftwareRenderer(); }
+void EightEchoEditor::parentHierarchyChanged() { useSoftwareRenderer(); hostLock.track (*this); }
 void EightEchoEditor::visibilityChanged()      { useSoftwareRenderer(); if (isShowing()) repaint(); }
 
 float EightEchoEditor::physicalScale() const
@@ -874,6 +875,13 @@ void EightEchoEditor::tick()
 {
     const double now = Time::getMillisecondCounterHiRes();
     if (getPeer() != lastPeer || now - lastRendererCheckMs > 1000.0) { lastRendererCheckMs = now; useSoftwareRenderer(); }
+    hostLock.track (*this);
+    if (now - lastGlowReadMs > 3000.0)       // Glow intensity : commun a toutes les fenetres (jamais dans paint)
+    {
+        lastGlowReadMs = now;
+        const float gl = (float) NineHandsGlow::percent (JucePlugin_Name) / 100.0f;
+        if (std::abs (gl - proc.glowLevel.load()) > 0.001f) { proc.glowLevel = gl; pedal.repaint(); }
+    }
     if (resizeSettle > 0 && --resizeSettle == 0) rebuildCaches();
     else if (resizeSettle == 0 && now - lastScaleCheckMs > 250.0)
     {
@@ -897,10 +905,7 @@ void EightEchoEditor::resized()
     const float s = (float) getHeight() / layout::frameH;
     pedal.setBounds (0, 0, (int) std::ceil (layout::frameW), (int) layout::frameH);
     pedal.setTransform (AffineTransform::scale (s));
-    const int defH = sizeHeight (WigaWindowSize::defaultIndex (JucePlugin_Name, numSizes));
-    if (! sizeFromProject && std::abs (getHeight() - defH) <= 2) proc.uiScale = -1.0f;   // taille par defaut : rien de propre a l'instance
-    else proc.uiScale = (float) getHeight() / (float) defaultH;
-    sizeFromProject = false;
+    // seules les tailles choisies au menu sont enregistrees (pas celles tirees au coin)
     resizeSettle = 4;      // les caches seront refaits quand la taille sera stable
 }
 
@@ -941,82 +946,81 @@ void EightEchoEditor::showPresetMenu()
         });
 }
 
-void EightEchoEditor::showMenu (int learnTarget)
+PopupMenu EightEchoEditor::buildContextMenu (int learnTarget)
 {
+    using namespace NineHandsMenu;
     auto& s = proc.apvts;
     auto val = [&s] (const char* id) { return s.getRawParameterValue (id)->load(); };
-    PopupMenu m, presets, stereo, div, exp, size;
+    auto ccText = [this] (int i) { const int n = proc.ccNum[i].load(); return n >= 0 ? "CC " + String (n) : String ("not assigned"); };
+    auto ctlName = [] (int i) { return String (EightEchoProcessor::learnable (i).name); };
+    const int lt = proc.learnTarget.load();
+    PopupMenu m;
     m.setLookAndFeel (&menuLnf);
-    for (int i = 0; i < proc.getNumPrograms(); ++i) presets.addItem (100 + i, proc.getProgramName (i));
+    if (learnTarget >= 0)      // menu d'une commande (tronc commun) : en-tete, MIDI Learn, Clear MIDI, Cancel MIDI learn
+    {
+        const int type = EightEchoProcessor::learnable (learnTarget).type;
+        const int ico = (type == EightEchoProcessor::kContinuous || type == EightEchoProcessor::kSelector) ? icoKnob : icoSwitch;
+        addHeader (m, menuLnf.f, ico, kMenuAccent, ctlName (learnTarget), "MIDI: " + ccText (learnTarget));
+        m.addItem (800 + learnTarget, "MIDI Learn: " + ctlName (learnTarget), true, lt == learnTarget);
+        m.addItem (850 + learnTarget, "Clear MIDI: " + ctlName (learnTarget), proc.ccNum[learnTarget].load() >= 0);
+        m.addItem (898, "Cancel MIDI learn", lt >= 0);
+        return m;
+    }
+
+    addHeader (m, menuLnf.f, icoPedal, kMenuAccent, "Eight Echo", "Digital delay  v" + String (JucePlugin_VersionString));
+    // presets : usine (chargees dans la memoire en cours), memoires de la pedale = presets utilisateur
+    PopupMenu presets, load, save;
+    for (int i = 0; i < proc.getNumPrograms(); ++i)
+        presets.addItem (100 + i, String (i + 1) + ". " + proc.getProgramName (i), true, proc.getCurrentProgram() == i && proc.getCurrentName() == proc.getProgramName (i));
+    for (int i = 0; i < EightEchoProcessor::kNumSlots; ++i)
+    {
+        load.addItem (600 + i, "Memory " + String (i + 1) + " : " + proc.getSlotName (i), true, proc.getCurrentSlot() == i);
+        save.addItem (700 + i, "Memory " + String (i + 1) + "  (overwrite " + proc.getSlotName (i) + ")");
+    }
+    m.addSubMenu ("Factory presets", presets);
+    m.addSubMenu ("Load user preset", load);
+    m.addSubMenu ("Save user preset", save);
+    m.addSeparator();
+
+    PopupMenu stereo, div;
     const char* st[] = { "Independent (default)", "Wide stereo", "Panning (ping-pong)" };
     for (int i = 0; i < 3; ++i) stereo.addItem (200 + i, st[i], true, (int) val ("stereo") == i);
     auto& dn = EightEchoProcessor::tapDivisionNames();
     for (int i = 0; i < dn.size(); ++i) div.addItem (300 + i, dn[i], true, (int) val ("division") == i);
-    exp.addItem (401, "Expression > E.LEVEL", true, val ("expLevel") > 0.5f);
-    exp.addItem (402, "Expression > FEEDBACK", true, val ("expFeedback") > 0.5f);
-    exp.addItem (403, "Expression > TIME", true, val ("expTime") > 0.5f);
-    {
-        const char* names[numSizes] = { "60 %", "75 %", "100 %" };
-        const int def = WigaWindowSize::defaultIndex (JucePlugin_Name, numSizes);
-        PopupMenu defSizes;
-        for (int i = 0; i < numSizes; ++i)
-        {
-            size.addItem (501 + i, String (names[i]) + (i == def ? "  (default)" : ""), true, std::abs (getHeight() - sizeHeight (i)) <= 2);
-            defSizes.addItem (520 + i, names[i], true, i == def);
-        }
-        size.addSeparator();
-        size.addSubMenu ("Default size (new windows)", defSizes);
-    }
-    PopupMenu save;
-    for (int i = 0; i < EightEchoProcessor::kNumSlots; ++i) save.addItem (700 + i, "Memory " + String (i + 1));
-
-    // MIDI Learn : uniquement par clic droit sur la commande a assigner (aucun CC par defaut)
-    auto ccText = [this] (int i) { const int n = proc.ccNum[i].load(); return n >= 0 ? "CC " + String (n) : String (CharPointer_UTF8 ("\xe2\x80\x94")); };
-    auto ctlName = [] (int i) { return String (EightEchoProcessor::learnable (i).name); };
-    bool anyCc = false;
-    for (int i = 0; i < EightEchoProcessor::kNumLearn; ++i) anyCc = anyCc || proc.ccNum[i].load() >= 0;
-    if (const int ex = EightEchoProcessor::learnIndexOf ("exp"); ex >= 0)
-    {
-        exp.addSeparator();
-        exp.addItem (800 + ex, "MIDI Learn: EXP (" + ccText (ex) + ")", true, proc.learnTarget.load() == ex);
-        if (proc.ccNum[ex].load() >= 0) exp.addItem (850 + ex, "Clear MIDI: EXP");
-    }
-
-    if (learnTarget >= 0)      // clic droit sur une commande : en-tete de la commande et son MIDI Learn
-    {
-        const int type = EightEchoProcessor::learnable (learnTarget).type;
-        const int ico = (type == EightEchoProcessor::kContinuous || type == EightEchoProcessor::kSelector) ? NineHandsMenu::icoKnob : NineHandsMenu::icoSwitch;
-        const int cc = proc.ccNum[learnTarget].load();
-        NineHandsMenu::addHeader (m, menuLnf.f, ico, kMenuAccent, ctlName (learnTarget), cc >= 0 ? "MIDI: CC " + String (cc) : String ("MIDI: not assigned"));
-        m.addItem (800 + learnTarget, "MIDI Learn: " + ctlName (learnTarget) + " (" + ccText (learnTarget) + ")", true, proc.learnTarget.load() == learnTarget);
-        if (cc >= 0) m.addItem (850 + learnTarget, "Clear MIDI: " + ctlName (learnTarget));
-        if (proc.learnTarget.load() >= 0) m.addItem (898, "Cancel MIDI learn (" + ctlName (proc.learnTarget.load()) + ")");
-        m.addSeparator();
-    }
-    else
-    {
-        NineHandsMenu::addHeader (m, menuLnf.f, NineHandsMenu::icoPedal, kMenuAccent, "Eight Echo", "Digital delay  v" + String (JucePlugin_VersionString));
-        if (proc.learnTarget.load() >= 0)
-        {
-            m.addItem (898, "Cancel MIDI learn (" + ctlName (proc.learnTarget.load()) + ")");
-            m.addSeparator();
-        }
-    }
-    m.addSubMenu ("Factory presets (load into memory " + String (proc.getCurrentSlot() + 1) + ")", presets);
-    m.addSubMenu ("Save current settings to memory", save);
-    m.addSeparator();
     m.addSubMenu ("Stereo mode", stereo);
     m.addSubMenu ("Tap division", div);
     m.addItem (601, "Carryover (trails when bypassed)", true, val ("carryover") > 0.5f);
-    m.addItem (602, "SYNC: delay locked to host tempo", true, val ("sync") > 0.5f);
-    m.addSubMenu ("Expression pedal (EXP parameter)", exp);
-    PopupMenu glowM;
-    for (int i = 1; i <= 4; ++i) glowM.addItem (540 + i, String (i * 25) + " %", true, std::abs (proc.glowLevel.load() - 0.25f * (float) i) < 0.01f);
-    m.addSubMenu ("Glow", glowM);
+    m.addItem (602, "Sync delay to host tempo", true, val ("sync") > 0.5f);
     m.addSeparator();
-    if (anyCc) m.addItem (897, "Clear all MIDI assignments");
-    m.addSubMenu ("Plugin size", size);
 
+    PopupMenu midi, exp;
+    midi.addSectionHeader ("MIDI Learn");
+    for (int i = 0; i < EightEchoProcessor::kNumLearn; ++i)
+        midi.addItem (800 + i, "Learn: " + ctlName (i) + "  (" + ccText (i) + ")", true, lt == i);
+    midi.addSeparator();
+    midi.addItem (898, "Cancel MIDI learn", lt >= 0);
+    midi.addItem (897, "Clear all MIDI assignments");
+    midi.addSeparator();
+    NineHandsWindow::addMidiFootswitchMode (midi, proc.midiFsLatching.load());
+    exp.addItem (401, "Expression > E.LEVEL", true, val ("expLevel") > 0.5f);
+    exp.addItem (402, "Expression > FEEDBACK", true, val ("expFeedback") > 0.5f);
+    exp.addItem (403, "Expression > TIME", true, val ("expTime") > 0.5f);
+    midi.addSubMenu ("Expression pedal (EXP parameter)", exp);
+    midi.addSeparator();
+    NineHandsWindow::addProgramChangeInfo (midi);
+    m.addSubMenu ("MIDI", midi);
+    m.addSeparator();
+
+    const char* names[numSizes] = { "60 %", "75 %", "100 %" };
+    const int heights[numSizes] = { sizeHeight (0), sizeHeight (1), sizeHeight (2) };
+    m.addSubMenu ("Plugin size", NineHandsWindow::sizeMenu (JucePlugin_Name, numSizes, names, heights, getHeight()));
+    m.addSubMenu ("Glow intensity", NineHandsWindow::glowMenu (roundToInt (proc.glowLevel.load() * 100.0f)));
+    return m;
+}
+
+void EightEchoEditor::showMenu (int learnTarget)
+{
+    auto m = buildContextMenu (learnTarget);
     m.showMenuAsync (PopupMenu::Options().withMousePosition(),       // menu clic droit : toujours la ou l'on clique
         [safe = Component::SafePointer<EightEchoEditor> (this)] (int r)
     {
@@ -1028,22 +1032,21 @@ void EightEchoEditor::showMenu (int learnTarget)
             if (auto* par = pr.apvts.getParameter (id)) { par->beginChangeGesture(); par->setValueNotifyingHost (par->convertTo0to1 (v)); par->endChangeGesture(); }
         };
         auto toggle = [&pr, &set] (const char* id) { set (id, pr.apvts.getRawParameterValue (id)->load() > 0.5f ? 0.0f : 1.0f); };
+        int inst = pr.uiSizeIdx.load();
+        const int sz = NineHandsWindow::handleSize (r, JucePlugin_Name, numSizes, inst);
+        if (sz >= 0) { pr.uiSizeIdx = inst; ed.setScaledHeight (sizeHeight (sz)); return; }
+        if (const int pc = NineHandsWindow::handleGlow (r, JucePlugin_Name)) { pr.glowLevel.store ((float) pc / 100.0f); ed.pedal.repaint(); return; }
         if (r >= 100 && r < 200) pr.setCurrentProgram (r - 100);
         else if (r >= 200 && r < 300) set ("stereo", (float) (r - 200));
         else if (r >= 300 && r < 400) set ("division", (float) (r - 300));
         else if (r == 401) toggle ("expLevel");
         else if (r == 402) toggle ("expFeedback");
         else if (r == 403) toggle ("expTime");
-        else if (r >= 501 && r < 501 + numSizes) ed.setScaledHeight (sizeHeight (r - 501));
-        else if (r >= 520 && r < 520 + numSizes)
-        {
-            WigaWindowSize::setDefaultIndex (JucePlugin_Name, r - 520);   // toutes les nouvelles fenetres de ce plugin
-            ed.setScaledHeight (sizeHeight (r - 520));                    // et cette fenetre tout de suite
-        }
-        else if (r >= 541 && r <= 544) { pr.glowLevel.store (0.25f * (float) (r - 540)); ed.pedal.repaint(); }
+        else if (r >= 600 && r < 600 + EightEchoProcessor::kNumSlots) pr.loadSlot (r - 600);
         else if (r >= 700 && r < 700 + EightEchoProcessor::kNumSlots) ed.pedal.saveToSlot (r - 700);
         else if (r == 601) toggle ("carryover");
         else if (r == 602) toggle ("sync");
+        else if (r == NineHandsWindow::idLatch || r == NineHandsWindow::idMomentary) pr.midiFsLatching = r == NineHandsWindow::idLatch;
         else if (r >= 800 && r < 800 + EightEchoProcessor::kNumLearn) pr.learnTarget.store (r - 800);
         else if (r >= 850 && r < 850 + EightEchoProcessor::kNumLearn)
         {
@@ -1051,6 +1054,6 @@ void EightEchoEditor::showMenu (int learnTarget)
             if (pr.learnTarget.load() == r - 850) pr.learnTarget.store (-1);
         }
         else if (r == 898) pr.learnTarget.store (-1);
-        else if (r == 897) for (int i = 0; i < EightEchoProcessor::kNumLearn; ++i) pr.ccNum[i].store (-1);
+        else if (r == 897) { pr.learnTarget.store (-1); for (int i = 0; i < EightEchoProcessor::kNumLearn; ++i) pr.ccNum[i].store (-1); }
     });
 }

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22)
-project(EightEcho VERSION 2.0.1)
+project(EightEcho VERSION 2.1.0)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -50,6 +50,17 @@ target_sources(EightEcho PRIVATE
     PluginProcessor.cpp
     PluginEditor.cpp)
 
+
+# verrou de taille de la fenetre du DAW (jamais sous 60 %, jamais au-dela de 150 %)
+if(APPLE)
+  target_sources(EightEcho PRIVATE WindowMinSize.mm)
+  target_link_libraries(EightEcho PRIVATE "-framework Cocoa")
+else()
+  target_sources(EightEcho PRIVATE WindowMinSize.cpp)
+endif()
+if(WIN32)
+  target_link_libraries(EightEcho PRIVATE comctl32 user32)
+endif()
 target_compile_definitions(EightEcho PUBLIC
     JUCE_WEB_BROWSER=0
     JUCE_USE_CURL=0
